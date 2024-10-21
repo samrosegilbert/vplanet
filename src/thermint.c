@@ -34,6 +34,7 @@ void fvBodyCopyThermint(BODY *dest, BODY *src, int foo, int iNumBodies,
   dest[iBody].dViscMeltXi    = src[iBody].dViscMeltXi;
   dest[iBody].dStagLid       = src[iBody].dStagLid;
   dest[iBody].dManHFlowPref  = src[iBody].dManHFlowPref;
+  dest[iBody].dWaterViscMan  = src[iBody].dWaterViscMan;
   /* Aux Props Variables */
   dest[iBody].dTUMan         = src[iBody].dTUMan;
   dest[iBody].dTLMan         = src[iBody].dTLMan;
@@ -48,6 +49,45 @@ void fvBodyCopyThermint(BODY *dest, BODY *src, int foo, int iNumBodies,
   dest[iBody].dViscMMan      = src[iBody].dViscMMan;
   dest[iBody].dBLUMan        = src[iBody].dBLUMan;
   dest[iBody].dBLLMan        = src[iBody].dBLLMan;
+  /* Carbon Reservoirs */
+  dest[iBody].dCarbMan       = src[iBody].dCarbMan;
+  dest[iBody].dCarbPlate     = src[iBody].dCarbPlate;
+  dest[iBody].dCarbSurf      = src[iBody].dCarbSurf;
+  dest[iBody].dDCarbManDt    = src[iBody].dDCarbManDt;
+  dest[iBody].dDCarbPlateDt  = src[iBody].dDCarbPlateDt;
+  dest[iBody].dDCarbSurfDt   = src[iBody].dDCarbSurfDt;
+  dest[iBody].dPartialCO2    = src[iBody].dPartialCO2;
+  dest[iBody].dPartialCO2LastStep = src[iBody].dPartialCO2LastStep;
+  dest[iBody].dDParCarbAtmDt = src[iBody].dDParCarbAtmDt;
+  dest[iBody].dTempEff       = src[iBody].dTempEff;
+  dest[iBody].dPlateSpeed    = src[iBody].dPlateSpeed;
+  dest[iBody].dPSat          = src[iBody].dPSat;
+  dest[iBody].dCarbSubFlux   = src[iBody].dCarbSubFlux;
+  dest[iBody].dCarbArcFlux   = src[iBody].dCarbArcFlux;
+  dest[iBody].dCarbDegasFlux = src[iBody].dCarbDegasFlux;
+  dest[iBody].dCarbSFWFlux   = src[iBody].dCarbSFWFlux;
+  dest[iBody].dCarbWeathFlux = src[iBody].dCarbWeathFlux;
+  dest[iBody].dCarbOcean     = src[iBody].dCarbOcean;
+  dest[iBody].dCarbAtm       = src[iBody].dCarbAtm;
+  dest[iBody].dInstellation  = src[iBody].dInstellation;
+  dest[iBody].dWaterMan      = src[iBody].dWaterMan;
+  dest[iBody].dWaterOcean    = src[iBody].dWaterOcean;
+  dest[iBody].dWaterAtm     = src[iBody].dWaterAtm;
+  dest[iBody].dDWaterManDt   = src[iBody].dDWaterManDt;
+  dest[iBody].dDWaterOceanDt = src[iBody].dDWaterOceanDt;
+  dest[iBody].dDWaterAtmDt  = src[iBody].dDWaterAtmDt;
+  dest[iBody].dVelScale      = src[iBody].dVelScale;
+  dest[iBody].dWaterInMelt   = src[iBody].dWaterInMelt;
+  dest[iBody].dSpreadRate    = src[iBody].dSpreadRate;
+  dest[iBody].dSerpLayerThickness = src[iBody].dSerpLayerThickness;
+  dest[iBody].dWaterMORFlux  = src[iBody].dWaterMORFlux;
+  dest[iBody].dWaterSubFlux  = src[iBody].dWaterSubFlux;
+  dest[iBody].dWaterPrecipMass = src[iBody].dWaterPrecipMass;
+  dest[iBody].dPartialH2O = src[iBody].dPartialH2O;
+  dest[iBody].dPartialH2OLastStep = src[iBody].dPartialH2OLastStep;
+  dest[iBody].dDParWaterAtmDt = src[iBody].dDParWaterAtmDt;
+  dest[iBody].dDOpacityDt = src[iBody].dDOpacityDt;
+
   // dShmodUMan in body.c:BodyCopy to avoid floating point exceptions with other
   // modules
   dest[iBody].dTsolUMan          = src[iBody].dTsolUMan;
@@ -227,6 +267,27 @@ void fvReadTCore(BODY *body, CONTROL *control, FILES *files, OPTIONS *options,
   @param system System struct
   @param iFile Index of file
 */
+
+void fvReadWaterViscMan(BODY *body, CONTROL *control, FILES *files,
+                        OPTIONS *options, SYSTEM *system, int iFile) {
+  int lTmp = -1;
+  double dTmp;
+  AddOptionDouble(files->Infile[iFile].cIn, options->cName, &dTmp, &lTmp,
+                  control->Io.iVerbose);
+  if (lTmp >= 0) { // if line num of option ge 0
+    NotPrimaryInput(iFile, options->cName, files->Infile[iFile].cIn, lTmp,
+                  control->Io.iVerbose);
+    if (dTmp < 0) // if input value lt 0
+      body[iFile - 1].dWaterViscMan =
+            dTmp * dNegativeDouble(*options, files->Infile[iFile].cIn,
+                                  control->Io.iVerbose);
+    else
+      body[iFile - 1].dWaterViscMan = dTmp; // no units.
+    UpdateFoundOption(&files->Infile[iFile], options, lTmp, iFile);
+  } else if (iFile > 0) // if line num not ge 0, then if iFile gt 0, then set default.
+    body[iFile - 1].dWaterViscMan = options->dDefault;
+}
+
 void fvReadViscJumpMan(BODY *body, CONTROL *control, FILES *files,
                        OPTIONS *options, SYSTEM *system, int iFile) {
   int lTmp = -1;
@@ -1168,6 +1229,144 @@ void fvReadImK2ManOrbModel(BODY *body, CONTROL *control, FILES *files,
   }
 }
 
+void fvReadCarbMan(BODY *body, CONTROL *control, FILES *files,
+                        OPTIONS *options, SYSTEM *system, int iFile) {
+  int lTmp = -1;
+  double dTmp;
+  AddOptionDouble(files->Infile[iFile].cIn, options->cName, &dTmp, &lTmp,
+                  control->Io.iVerbose);
+  if (lTmp >= 0) { // if line num of option ge 0
+    NotPrimaryInput(iFile, options->cName, files->Infile[iFile].cIn, lTmp,
+                    control->Io.iVerbose);
+    if (dTmp < 0) { // if input value lt 0
+      body[iFile - 1].dCarbMan =
+            dTmp * dNegativeDouble(*options, files->Infile[iFile].cIn,
+                                   control->Io.iVerbose);
+    } else {
+      body[iFile - 1].dCarbMan = dTmp; //* fdUnitsMass(control->Units[iFile].iMass);
+    }
+    UpdateFoundOption(&files->Infile[iFile], options, lTmp, iFile);
+  } else if (iFile >
+             0) { // if line num not ge 0, then if iFile gt 0, then set default.
+    body[iFile - 1].dCarbMan = options->dDefault;
+  }
+}
+
+void fvReadCarbPlate(BODY *body, CONTROL *control, FILES *files,
+                        OPTIONS *options, SYSTEM *system, int iFile) {
+  int lTmp = -1;
+  double dTmp;
+  AddOptionDouble(files->Infile[iFile].cIn, options->cName, &dTmp, &lTmp,
+                  control->Io.iVerbose);
+  if (lTmp >= 0) { // if line num of option ge 0
+    NotPrimaryInput(iFile, options->cName, files->Infile[iFile].cIn, lTmp,
+                    control->Io.iVerbose);
+    if (dTmp < 0) { // if input value lt 0
+      body[iFile - 1].dCarbPlate =
+            dTmp * dNegativeDouble(*options, files->Infile[iFile].cIn,
+                                   control->Io.iVerbose);
+    } else {
+      body[iFile - 1].dCarbPlate = dTmp; //* fdUnitsMass(control->Units[iFile].iMass); 
+    }
+    UpdateFoundOption(&files->Infile[iFile], options, lTmp, iFile);
+  } else if (iFile >
+             0) { // if line num not ge 0, then if iFile gt 0, then set default.
+    body[iFile - 1].dCarbPlate = options->dDefault;
+  }
+}
+
+void fvReadCarbSurf(BODY *body, CONTROL *control, FILES *files,
+                        OPTIONS *options, SYSTEM *system, int iFile) {
+  int lTmp = -1;
+  double dTmp;
+  AddOptionDouble(files->Infile[iFile].cIn, options->cName, &dTmp, &lTmp,
+                  control->Io.iVerbose);
+  if (lTmp >= 0) { // if line num of option ge 0
+    NotPrimaryInput(iFile, options->cName, files->Infile[iFile].cIn, lTmp,
+                    control->Io.iVerbose);
+    if (dTmp < 0) { // if input value lt 0
+      body[iFile - 1].dCarbSurf =
+            dTmp * dNegativeDouble(*options, files->Infile[iFile].cIn,
+                                   control->Io.iVerbose);
+    } else {
+      body[iFile - 1].dCarbSurf = dTmp; //* fdUnitsMass(control->Units[iFile].iMass); 
+    }
+    UpdateFoundOption(&files->Infile[iFile], options, lTmp, iFile);
+  } else if (iFile >
+             0) { // if line num not ge 0, then if iFile gt 0, then set default.
+    body[iFile - 1].dCarbSurf = options->dDefault;
+  }
+}
+
+void fvReadWaterMan(BODY *body, CONTROL *control, FILES *files,
+                        OPTIONS *options, SYSTEM *system, int iFile) {
+  int lTmp = -1;
+  double dTmp;
+  AddOptionDouble(files->Infile[iFile].cIn, options->cName, &dTmp, &lTmp,
+                  control->Io.iVerbose);
+  if (lTmp >= 0) { // if line num of option ge 0
+    NotPrimaryInput(iFile, options->cName, files->Infile[iFile].cIn, lTmp,
+                    control->Io.iVerbose);
+    if (dTmp < 0) { // if input value lt 0
+      body[iFile - 1].dWaterMan =
+            dTmp * dNegativeDouble(*options, files->Infile[iFile].cIn,
+                                   control->Io.iVerbose);
+    } else {
+      body[iFile - 1].dWaterMan = dTmp; //* fdUnitsMass(control->Units[iFile].iMass);
+    }
+    UpdateFoundOption(&files->Infile[iFile], options, lTmp, iFile);
+  } else if (iFile >
+             0) { // if line num not ge 0, then if iFile gt 0, then set default.
+    body[iFile - 1].dWaterMan = options->dDefault;
+  }
+}
+
+void fvReadWaterOcean(BODY *body, CONTROL *control, FILES *files,
+                        OPTIONS *options, SYSTEM *system, int iFile) {
+  int lTmp = -1;
+  double dTmp;
+  AddOptionDouble(files->Infile[iFile].cIn, options->cName, &dTmp, &lTmp,
+                  control->Io.iVerbose);
+  if (lTmp >= 0) { // if line num of option ge 0
+    NotPrimaryInput(iFile, options->cName, files->Infile[iFile].cIn, lTmp,
+                    control->Io.iVerbose);
+    if (dTmp < 0) { // if input value lt 0
+      body[iFile - 1].dWaterOcean =
+            dTmp * dNegativeDouble(*options, files->Infile[iFile].cIn,
+                                   control->Io.iVerbose);
+    } else {
+      body[iFile - 1].dWaterOcean = dTmp; //* fdUnitsMass(control->Units[iFile].iMass); 
+    }
+    UpdateFoundOption(&files->Infile[iFile], options, lTmp, iFile);
+  } else if (iFile >
+             0) { // if line num not ge 0, then if iFile gt 0, then set default.
+    body[iFile - 1].dWaterOcean = options->dDefault;
+  }
+}
+
+void fvReadWaterAtm(BODY *body, CONTROL *control, FILES *files,
+                        OPTIONS *options, SYSTEM *system, int iFile) {
+  int lTmp = -1;
+  double dTmp;
+  AddOptionDouble(files->Infile[iFile].cIn, options->cName, &dTmp, &lTmp,
+                  control->Io.iVerbose);
+  if (lTmp >= 0) { // if line num of option ge 0
+    NotPrimaryInput(iFile, options->cName, files->Infile[iFile].cIn, lTmp,
+                    control->Io.iVerbose);
+    if (dTmp < 0) { // if input value lt 0
+      body[iFile - 1].dWaterAtm =
+            dTmp * dNegativeDouble(*options, files->Infile[iFile].cIn,
+                                   control->Io.iVerbose);
+    } else {
+      body[iFile - 1].dWaterAtm = dTmp; //* fdUnitsMass(control->Units[iFile].iMass); 
+    }
+    UpdateFoundOption(&files->Infile[iFile], options, lTmp, iFile);
+  } else if (iFile >
+             0) { // if line num not ge 0, then if iFile gt 0, then set default.
+    body[iFile - 1].dWaterAtm = options->dDefault;
+  }
+}
+
 /* End vemcee parameters */
 
 
@@ -1216,6 +1415,17 @@ void fvInitializeOptionsThermint(OPTIONS *options, fnReadOption fnRead[]) {
   options[OPT_TCORE].dDefault   = 6000.0;
   sprintf(options[OPT_TCORE].cNeg, "No negative behavior");
   fnRead[OPT_TCORE] = &fvReadTCore;
+
+  /* WaterViscMan */
+  sprintf(options[OPT_WATERVISCMAN].cName, "dWaterViscMan");
+  sprintf(options[OPT_WATERVISCMAN].cDescr, 
+    "Depression of mantle viscosity activation energy due to water");
+  sprintf(options[OPT_WATERVISCMAN].cDefault, 
+    "Default is geometric mean of Anita Bay and Aheim dunites"); // See McGovern and Schubert (1989)
+  options[OPT_WATERVISCMAN].iType      = 2;
+  options[OPT_WATERVISCMAN].bMultiFile = 1;
+  options[OPT_WATERVISCMAN].dDefault   = 2.22e6;
+  fnRead[OPT_WATERVISCMAN]             = &fvReadWaterViscMan;
 
   /* ViscJumpMan */
   sprintf(options[OPT_VISCJUMPMAN].cName, "dViscJumpMan");
@@ -1698,7 +1908,93 @@ void fvInitializeOptionsThermint(OPTIONS *options, fnReadOption fnRead[]) {
   // Needs a LongDescr -- XXX I'm not sure what this does! RB
   // PD(4/26/21): I don't know what this does either!  Presumably its a switch
   // to use different tidal heating models?
+
+  /* CarbMan */
+  sprintf(options[OPT_CARBMAN].cName, "dCarbMan");
+  sprintf(options[OPT_CARBMAN].cDescr,
+          "Initial mass of carbon dioxide in the mantle");
+  sprintf(options[OPT_CARBMAN].cDefault, "0 kg");
+  sprintf(options[OPT_CARBMAN].cDimension, "mass");
+  options[OPT_CARBMAN].iType      = 2;
+  options[OPT_CARBMAN].bNeg       = 0;
+  options[OPT_CARBMAN].iFileType = 1;
+  options[OPT_CARBMAN].dNeg = 1;
+  options[OPT_CARBMAN].dDefault = 0;
+  sprintf(options[OPT_CARBMAN].cNeg, "kg");
+  fnRead[OPT_CARBMAN] = &fvReadCarbMan;  
+
+  /* CarbPlate */
+  sprintf(options[OPT_CARBPLATE].cName, "dCarbPlate");
+  sprintf(options[OPT_CARBPLATE].cDescr,
+          "Initial mass of carbon dioxide in the plate");
+  sprintf(options[OPT_CARBPLATE].cDefault, "0 kg");
+  sprintf(options[OPT_CARBPLATE].cDimension, "mass");
+  options[OPT_CARBPLATE].iType      = 2;
+  options[OPT_CARBPLATE].bNeg       = 0;
+  options[OPT_CARBPLATE].iFileType = 1;
+  options[OPT_CARBPLATE].dNeg = 1;
+  options[OPT_CARBPLATE].dDefault = 0;
+  sprintf(options[OPT_CARBPLATE].cNeg, "kg");
+  fnRead[OPT_CARBPLATE] = &fvReadCarbPlate; 
+
+  /* CarbSurf */
+  sprintf(options[OPT_CARBSURF].cName, "dCarbSurf");
+  sprintf(options[OPT_CARBSURF].cDescr,
+          "Initial mass of carbon dioxide on the surface (atm+ocean)");
+  sprintf(options[OPT_CARBSURF].cDefault, "0 kg");
+  sprintf(options[OPT_CARBSURF].cDimension, "mass");
+  options[OPT_CARBSURF].iType      = 2;
+  options[OPT_CARBSURF].bNeg       = 0;
+  options[OPT_CARBSURF].iFileType = 1;
+  options[OPT_CARBSURF].dNeg = 1;
+  options[OPT_CARBSURF].dDefault = 0;
+  sprintf(options[OPT_CARBSURF].cNeg, "kg");
+  fnRead[OPT_CARBSURF] = &fvReadCarbSurf;  
+
+  /* WaterMan */
+  sprintf(options[OPT_WATERMAN].cName, "dWaterMan");
+  sprintf(options[OPT_WATERMAN].cDescr,
+          "Initial mass of water in the mantle");
+  sprintf(options[OPT_WATERMAN].cDefault, "0 kg");
+  sprintf(options[OPT_WATERMAN].cDimension, "mass");
+  options[OPT_WATERMAN].iType      = 2;
+  options[OPT_WATERMAN].bNeg       = 0;
+  options[OPT_WATERMAN].iFileType = 1;
+  options[OPT_WATERMAN].dNeg = 1;
+  options[OPT_WATERMAN].dDefault = 0;
+  sprintf(options[OPT_WATERMAN].cNeg, "kg");
+  fnRead[OPT_WATERMAN] = &fvReadWaterMan;  
+
+  /* WaterOcean */
+  sprintf(options[OPT_WATEROCEAN].cName, "dWaterOcean");
+  sprintf(options[OPT_WATEROCEAN].cDescr,
+          "Initial mass of water in the ocean");
+  sprintf(options[OPT_WATEROCEAN].cDefault, "0 kg");
+  sprintf(options[OPT_WATEROCEAN].cDimension, "mass");
+  options[OPT_WATEROCEAN].iType      = 2;
+  options[OPT_WATEROCEAN].bNeg       = 0;
+  options[OPT_WATEROCEAN].iFileType = 1;
+  options[OPT_WATEROCEAN].dNeg = 1;
+  options[OPT_WATEROCEAN].dDefault = 0;
+  sprintf(options[OPT_WATEROCEAN].cNeg, "kg");
+  fnRead[OPT_WATEROCEAN] = &fvReadWaterOcean; 
+
+  /* WaterAtm */
+  sprintf(options[OPT_WATERATM].cName, "dWaterAtm");
+  sprintf(options[OPT_WATERATM].cDescr,
+          "Initial mass of water in the atmosphere");
+  sprintf(options[OPT_WATERATM].cDefault, "0 kg");
+  sprintf(options[OPT_WATERATM].cDimension, "mass");
+  options[OPT_WATERATM].iType      = 2;
+  options[OPT_WATERATM].bNeg       = 0;
+  options[OPT_WATERATM].iFileType = 1;
+  options[OPT_WATERATM].dNeg = 1;
+  options[OPT_WATERATM].dDefault = 0;
+  sprintf(options[OPT_WATERATM].cNeg, "kg");
+  fnRead[OPT_WATERATM] = &fvReadWaterAtm;   
+
 }
+
 /**
   Read options in thermint
 
@@ -1817,6 +2113,161 @@ void fvVerifyTCore(BODY *body, OPTIONS *options, SYSTEM *system, UPDATE *update,
   update[iBody].daDerivProc[update[iBody].iTCore][0] = 0;
 }
 
+void InitializeCarbManThermint(BODY *body, OPTIONS *options,
+                UPDATE *update, double dAge, int iBody) {
+
+  update[iBody].iaType[update[iBody].iCarbMan]
+                [update[iBody].iCarbManThermint] = 1;
+  // here we assume only one body is affecting the way the variable is updated
+  update[iBody].iNumBodies[update[iBody].iCarbMan]
+                [update[iBody].iCarbManThermint] = 1;
+  // allocate memory
+  update[iBody].iaBody[update[iBody].iCarbMan]
+                [update[iBody].iCarbManThermint] = malloc(
+                update[iBody].iNumBodies[update[iBody].iCarbMan]
+                [update[iBody].iCarbManThermint] * sizeof(int));
+  // Assign body(ies) that affect this derivative
+  update[iBody].iaBody[update[iBody].iCarbMan]
+                [update[iBody].iCarbManThermint][0] = iBody;
+  // Assign pointer the derivative
+  update[iBody].pdDCarbManDtThermint =
+                &update[iBody].daDerivProc[update[iBody].iCarbMan]
+                [update[iBody].iCarbManThermint];
+}
+
+void InitializeCarbPlateThermint(BODY *body, OPTIONS *options,
+                UPDATE *update, double dAge, int iBody) {
+
+  update[iBody].iaType[update[iBody].iCarbPlate]
+                [update[iBody].iCarbPlateThermint] = 1;
+  // here we assume only one body is affecting the way the variable is updated
+  update[iBody].iNumBodies[update[iBody].iCarbPlate]
+                [update[iBody].iCarbPlateThermint] = 1;
+  // allocate memory
+  update[iBody].iaBody[update[iBody].iCarbPlate]
+                [update[iBody].iCarbPlateThermint] = malloc(
+                update[iBody].iNumBodies[update[iBody].iCarbPlate]
+                [update[iBody].iCarbPlateThermint] * sizeof(int));
+  // Assign body(ies) that affect this derivative
+  update[iBody].iaBody[update[iBody].iCarbPlate]
+                [update[iBody].iCarbPlateThermint][0] = iBody;
+  // Assign pointer the derivative
+  update[iBody].pdDCarbPlateDtThermint =
+                &update[iBody].daDerivProc[update[iBody].iCarbPlate]
+                [update[iBody].iCarbPlateThermint];
+}
+
+
+void InitializeCarbSurfThermint(BODY *body, OPTIONS *options,
+                UPDATE *update, double dAge, int iBody) {
+
+  update[iBody].iaType[update[iBody].iCarbSurf]
+                [update[iBody].iCarbSurfThermint] = 1;
+  // here we assume only one body is affecting the way the variable is updated
+  update[iBody].iNumBodies[update[iBody].iCarbSurf]
+                [update[iBody].iCarbSurfThermint] = 1;
+  // allocate memory
+  update[iBody].iaBody[update[iBody].iCarbSurf]
+                [update[iBody].iCarbSurfThermint] = malloc(
+                update[iBody].iNumBodies[update[iBody].iCarbSurf]
+                [update[iBody].iCarbSurfThermint] * sizeof(int));
+  // Assign body(ies) that affect this derivative
+  update[iBody].iaBody[update[iBody].iCarbSurf]
+                [update[iBody].iCarbSurfThermint][0] = iBody;
+  // Assign pointer the derivative
+  update[iBody].pdDCarbSurfDtThermint =
+                &update[iBody].daDerivProc[update[iBody].iCarbSurf]
+                [update[iBody].iCarbSurfThermint];
+}
+
+void InitializeWaterManThermint(BODY *body, OPTIONS *options,
+                UPDATE *update, double dAge, int iBody) {
+
+  update[iBody].iaType[update[iBody].iWaterMan]
+                [update[iBody].iWaterManThermint] = 1;
+  // here we assume only one body is affecting the way the variable is updated
+  update[iBody].iNumBodies[update[iBody].iWaterMan]
+                [update[iBody].iWaterManThermint] = 1;
+  // allocate memory
+  update[iBody].iaBody[update[iBody].iWaterMan]
+                [update[iBody].iWaterManThermint] = malloc(
+                update[iBody].iNumBodies[update[iBody].iWaterMan]
+                [update[iBody].iWaterManThermint] * sizeof(int));
+  // Assign body(ies) that affect this derivative
+  update[iBody].iaBody[update[iBody].iWaterMan]
+                [update[iBody].iWaterManThermint][0] = iBody;
+  // Assign pointer the derivative
+  update[iBody].pdDWaterManDtThermint =
+                &update[iBody].daDerivProc[update[iBody].iWaterMan]
+                [update[iBody].iWaterManThermint];
+}
+
+void InitializeWaterOceanThermint(BODY *body, OPTIONS *options,
+                UPDATE *update, double dAge, int iBody) {
+
+  update[iBody].iaType[update[iBody].iWaterOcean]
+                [update[iBody].iWaterOceanThermint] = 1;
+  // here we assume only one body is affecting the way the variable is updated
+  update[iBody].iNumBodies[update[iBody].iWaterOcean]
+                [update[iBody].iWaterOceanThermint] = 1;
+  // allocate memory
+  update[iBody].iaBody[update[iBody].iWaterOcean]
+                [update[iBody].iWaterOceanThermint] = malloc(
+                update[iBody].iNumBodies[update[iBody].iWaterOcean]
+                [update[iBody].iWaterOceanThermint] * sizeof(int));
+  // Assign body(ies) that affect this derivative
+  update[iBody].iaBody[update[iBody].iWaterOcean]
+                [update[iBody].iWaterOceanThermint][0] = iBody;
+  // Assign pointer the derivative
+  update[iBody].pdDWaterOceanDtThermint =
+                &update[iBody].daDerivProc[update[iBody].iWaterOcean]
+                [update[iBody].iWaterOceanThermint];
+}
+
+void InitializeWaterAtmThermint(BODY *body, OPTIONS *options,
+                UPDATE *update, double dAge, int iBody) {
+
+  update[iBody].iaType[update[iBody].iWaterAtm]
+                [update[iBody].iWaterAtmThermint] = 1;
+  // here we assume only one body is affecting the way the variable is updated
+  update[iBody].iNumBodies[update[iBody].iWaterAtm]
+                [update[iBody].iWaterAtmThermint] = 1;
+  // allocate memory
+  update[iBody].iaBody[update[iBody].iWaterAtm]
+                [update[iBody].iWaterAtmThermint] = malloc(
+                update[iBody].iNumBodies[update[iBody].iWaterAtm]
+                [update[iBody].iWaterAtmThermint] * sizeof(int));
+  // Assign body(ies) that affect this derivative
+  update[iBody].iaBody[update[iBody].iWaterAtm]
+                [update[iBody].iWaterAtmThermint][0] = iBody;
+  // Assign pointer the derivative
+  update[iBody].pdDWaterAtmDtThermint =
+                &update[iBody].daDerivProc[update[iBody].iWaterAtm]
+                [update[iBody].iWaterAtmThermint];
+}
+
+void InitializeTSurfThermint(BODY *body, OPTIONS *options,
+                UPDATE *update, double dAge, int iBody) {
+
+  update[iBody].iaType[update[iBody].iTSurf]
+                [update[iBody].iTSurfThermint] = 1;
+  // here we assume only one body is affecting the way the variable is updated
+  update[iBody].iNumBodies[update[iBody].iTSurf]
+                [update[iBody].iTSurfThermint] = 1;
+  // allocate memory
+  update[iBody].iaBody[update[iBody].iTSurf]
+                [update[iBody].iTSurfThermint] = malloc(
+                update[iBody].iNumBodies[update[iBody].iTSurf]
+                [update[iBody].iTSurfThermint] * sizeof(int));
+  // Assign body(ies) that affect this derivative
+  update[iBody].iaBody[update[iBody].iTSurf]
+                [update[iBody].iTSurfThermint][0] = iBody;
+  // Assign pointer the derivative
+  update[iBody].pdDTSurfDtThermint =
+                &update[iBody].daDerivProc[update[iBody].iTSurf]
+                [update[iBody].iTSurfThermint];
+}
+
 /******************  AUX PROPS  ***************************/
 /**
   Set auxiliary properties in body.  This includes all thermint parameters that
@@ -1922,7 +2373,50 @@ void fvPropsAuxThermint(BODY *body, EVOLVE *evolve, IO *io, UPDATE *update,
   body[iBody].dMagMom         = fdMagMom(body, iBody);
   body[iBody].dPresSWind      = fdPresSWind(body, iBody);
   body[iBody].dMagPauseRad    = fdMagPauseRad(body, iBody);
+
+  fvFoleyPropsAux(body, evolve, iBody);
+  fvSealesPropsAux(body, evolve, iBody);
+  fvDriscollPropsAux(body, evolve, iBody);
 }
+
+void fvFoleyPropsAux(BODY *body, EVOLVE *evolve, int iBody) {
+  //fvPartialCO2LastStep(body, evolve, iBody);
+  //body[iBody].dPartialCO2 = fdPartialCO2(body, iBody);
+  fvPartialCO2LastStep(body, evolve, iBody);
+  body[iBody].dTempEff = fdTempEff(body, iBody);
+  //body[iBody].dTSurf = fdTSurfFoley(body, iBody);
+  //body[iBody].dPlateSpeed = fdPlateSpeedFoley(body, iBody);
+  body[iBody].dPSat = fdPSat(body, iBody);
+  body[iBody].dCarbSubFlux = fdCarbSubFlux(body, iBody);
+  body[iBody].dCarbArcFlux = fdCarbArcFlux(body, iBody);
+  body[iBody].dCarbDegasFlux = fdCarbDegasFlux(body, iBody);
+  body[iBody].dCarbSFWFlux = fdCarbSFWFlux(body, iBody);
+  body[iBody].dCarbWeathFlux = fdCarbWeathFlux(body, iBody);
+  body[iBody].dCarbOcean = fdCarbOcean(body, iBody);
+  body[iBody].dCarbAtm = fdCarbAtm(body, iBody);
+}
+
+void fvSealesPropsAux(BODY *body, EVOLVE *evolve, int iBody) {
+  fvPartialH2OLastStep(body, evolve, iBody);
+  body[iBody].dPlateSpeed = fdPlateSpeedSeales(body, iBody);
+  body[iBody].dVelScale = fdVelScale(body, iBody);
+  body[iBody].dWaterInMelt = fdWaterInMelt(body, iBody);
+  body[iBody].dSpreadRate = fdSpreadRate(body, iBody); 
+  body[iBody].dSerpLayerThickness = fdSerpLayerThickness(body, iBody);
+  body[iBody].dWaterMORFlux = fdWaterMORFlux(body, iBody);
+  body[iBody].dWaterSubFlux = fdWaterSubFlux(body, iBody);
+  // fvPartialH2OLastStep(body, evolve, iBody);
+  //body[iBody].dPartialH2O = fdPartialH2O(body, iBody);
+}
+
+void fvDriscollPropsAux(BODY *body, EVOLVE *evolve, int iBody) {
+  body[iBody].dWaterPrecipMass = fdWaterPrecipMass(body, evolve, iBody);
+  body[iBody].dDParWaterAtmDt = fdDParWaterAtmDt(body, evolve, iBody);
+  body[iBody].dDParCarbAtmDt = fdDParCarbAtmDt(body, evolve, iBody);
+  body[iBody].dDOpacityDt = fdDOpacityDt(body, iBody);
+}
+
+
 /**
   Enforce limits to fundamental parameters: if TMan or TCore < 0.5 then set it
   to 0 (i.e. removes negatives).
@@ -1947,18 +2441,56 @@ void fvForceBehaviorThermint(BODY *body, MODULE *module, EVOLVE *evolve, IO *io,
   if (body[iBody].dTCore < 0.5) {
     body[iBody].dTCore = 0;
   }
+
+  // if (body[iBody].dWaterOcean < 1e4) {
+  //   body[iBody].dWaterOcean = dTINY;
+  // }
+  // if (body[iBody].dWaterMORFlux < 5) {
+  //   body[iBody].dWaterMORFlux = dTINY;
+  // }
+
+  // body[iBody].dWaterPrecipMass = fdWaterPrecipMass(body, evolve, iBody);
+
+  // if (body[iBody].dWaterPrecipMass > 0) {
+  //   body[iBody].dWaterOcean = body[iBody].dWaterOcean + body[iBody].dWaterPrecipMass;
+  //   body[iBody].dWaterAtm = body[iBody].dWaterAtm - body[iBody].dWaterPrecipMass;
+  // }
+  // if (body[iBody].dWaterPrecipMass < 0) {
+  //   if (body[iBody].dWaterOcean - fabs(body[iBody].dWaterPrecipMass) < 0) {
+  //     body[iBody].dWaterAtm = body[iBody].dWaterAtm + body[iBody].dWaterOcean;
+  //     body[iBody].dWaterOcean = dTINY;
+  //   }
+  //   else {
+  //     body[iBody].dWaterAtm = body[iBody].dWaterAtm + fabs(body[iBody].dWaterPrecipMass);
+  //     body[iBody].dWaterOcean = body[iBody].dWaterOcean - fabs(body[iBody].dWaterPrecipMass);
+  //   }
+  // }
 }
 
 void fvAssignThermintDerivatives(BODY *body, EVOLVE *evolve, UPDATE *update,
                                  fnUpdateVariable ***fnUpdate, int iBody) {
   fnUpdate[iBody][update[iBody].iTMan][0]  = &fdTDotMan;
   fnUpdate[iBody][update[iBody].iTCore][0] = &fdTDotCore;
+  fnUpdate[iBody][update[iBody].iCarbMan][update[iBody].iCarbManThermint] = &fdDCarbManDtThermint;
+  fnUpdate[iBody][update[iBody].iCarbPlate][update[iBody].iCarbPlateThermint] = &fdDCarbPlateDtThermint;
+  fnUpdate[iBody][update[iBody].iCarbSurf][update[iBody].iCarbSurfThermint] = &fdDCarbSurfDtThermint;
+  fnUpdate[iBody][update[iBody].iWaterMan][update[iBody].iWaterManThermint] = &fdDWaterManDtThermint;
+  fnUpdate[iBody][update[iBody].iWaterOcean][update[iBody].iWaterOceanThermint] = &fdDWaterOceanDtThermint;
+  fnUpdate[iBody][update[iBody].iWaterAtm][update[iBody].iWaterAtmThermint] = &fdDWaterAtmDtThermint;
+  fnUpdate[iBody][update[iBody].iTSurf][update[iBody].iTSurfThermint] = &fdDTSurfDtThermint;
 }
 
 void fvNullThermintDerivatives(BODY *body, EVOLVE *evolve, UPDATE *update,
                                fnUpdateVariable ***fnUpdate, int iBody) {
   fnUpdate[iBody][update[iBody].iTMan][0]  = &fndUpdateFunctionTiny;
   fnUpdate[iBody][update[iBody].iTCore][0] = &fndUpdateFunctionTiny;
+  fnUpdate[iBody][update[iBody].iCarbMan][update[iBody].iCarbManThermint] = &fndUpdateFunctionTiny;
+  fnUpdate[iBody][update[iBody].iCarbPlate][update[iBody].iCarbPlateThermint] = &fndUpdateFunctionTiny;
+  fnUpdate[iBody][update[iBody].iCarbSurf][update[iBody].iCarbSurfThermint] = &fndUpdateFunctionTiny;
+  fnUpdate[iBody][update[iBody].iWaterMan][update[iBody].iWaterManThermint] = &fndUpdateFunctionTiny;
+  fnUpdate[iBody][update[iBody].iWaterOcean][update[iBody].iWaterOceanThermint] = &fndUpdateFunctionTiny;
+  fnUpdate[iBody][update[iBody].iWaterAtm][update[iBody].iWaterAtmThermint] = &fndUpdateFunctionTiny;
+  fnUpdate[iBody][update[iBody].iTSurf][update[iBody].iTSurfThermint] = &fndUpdateFunctionTiny;
 }
 
 /**
@@ -1985,6 +2517,22 @@ void fvVerifyThermint(BODY *body, CONTROL *control, FILES *files,
                iBody); // Verify Man.
   fvVerifyTCore(body, options, system, update, body[iBody].dAge,
                 iBody); // Verify Core.
+  InitializeCarbManThermint(body, options, update, body[iBody].dAge,
+                iBody);
+  InitializeCarbPlateThermint(body, options, update, body[iBody].dAge,
+                iBody); 
+  InitializeCarbSurfThermint(body, options, update, body[iBody].dAge,
+                iBody);
+
+  InitializeWaterManThermint(body, options, update, body[iBody].dAge,
+                iBody);
+  InitializeWaterOceanThermint(body, options, update, body[iBody].dAge,
+                iBody); 
+  InitializeWaterAtmThermint(body, options, update, body[iBody].dAge,
+                iBody);
+
+  InitializeTSurfThermint(body, options, update, body[iBody].dAge,
+                iBody);
 
   control->fnForceBehavior[iBody][iModule]   = &fvForceBehaviorThermint;
   control->fnPropsAux[iBody][iModule]        = &fvPropsAuxThermint;
@@ -2013,6 +2561,41 @@ void fvInitializeUpdateThermint(BODY *body, UPDATE *update, int iBody) {
     update[iBody].iNumVars++;
     update[iBody].iNumTCore++;
   }
+  
+  if (update[iBody].iNumCarbMan == 0) {
+    update[iBody].iNumVars++;
+  }
+  update[iBody].iNumCarbMan++;
+  
+  if (update[iBody].iNumCarbPlate == 0) {
+    update[iBody].iNumVars++;
+  }
+  update[iBody].iNumCarbPlate++;
+  
+  if (update[iBody].iNumCarbSurf == 0) {
+    update[iBody].iNumVars++;
+  }
+  update[iBody].iNumCarbSurf++;
+
+  if (update[iBody].iNumWaterMan == 0) {
+    update[iBody].iNumVars++;
+  }
+  update[iBody].iNumWaterMan++;
+  
+  if (update[iBody].iNumWaterOcean == 0) {
+    update[iBody].iNumVars++;
+  }
+  update[iBody].iNumWaterOcean++;
+  
+  if (update[iBody].iNumWaterAtm == 0) {
+    update[iBody].iNumVars++;
+  }
+  update[iBody].iNumWaterAtm++;
+
+  if (update[iBody].iNumTSurf == 0) {
+    update[iBody].iNumVars++;
+  }
+  update[iBody].iNumTSurf++;
 }
 /**
   Finalize update of TMan
@@ -2044,6 +2627,62 @@ void fvFinalizeUpdateTCoreThermint(BODY *body, UPDATE *update, int *iEqn,
   update[iBody].iaModule[iVar][*iEqn] = THERMINT;
   update[iBody].iNumTCore             = (*iEqn)++;
 }
+
+void fvFinalizeUpdateCarbManThermint(BODY *body, UPDATE *update,
+                                         int *iEqn, int iVar,int iBody,
+                                         int iFoo) {
+  update[iBody].iaModule[iVar][*iEqn] = THERMINT;
+  update[iBody].iCarbManThermint = *iEqn;
+  (*iEqn)++;
+  }
+
+void fvFinalizeUpdateCarbPlateThermint(BODY *body, UPDATE *update,
+                                         int *iEqn, int iVar,int iBody,
+                                         int iFoo) {
+  update[iBody].iaModule[iVar][*iEqn] = THERMINT;
+  update[iBody].iCarbPlateThermint = *iEqn;
+  (*iEqn)++;
+  }
+
+void fvFinalizeUpdateCarbSurfThermint(BODY *body, UPDATE *update,
+                                         int *iEqn, int iVar,int iBody,
+                                         int iFoo) {
+  update[iBody].iaModule[iVar][*iEqn] = THERMINT;
+  update[iBody].iCarbSurfThermint = *iEqn;
+  (*iEqn)++;
+  }
+
+void fvFinalizeUpdateWaterManThermint(BODY *body, UPDATE *update,
+                                         int *iEqn, int iVar,int iBody,
+                                         int iFoo) {
+  update[iBody].iaModule[iVar][*iEqn] = THERMINT;
+  update[iBody].iWaterManThermint = *iEqn;
+  (*iEqn)++;
+  }
+
+void fvFinalizeUpdateWaterOceanThermint(BODY *body, UPDATE *update,
+                                         int *iEqn, int iVar,int iBody,
+                                         int iFoo) {
+  update[iBody].iaModule[iVar][*iEqn] = THERMINT;
+  update[iBody].iWaterOceanThermint = *iEqn;
+  (*iEqn)++;
+  }
+
+void fvFinalizeUpdateWaterAtmThermint(BODY *body, UPDATE *update,
+                                         int *iEqn, int iVar,int iBody,
+                                         int iFoo) {
+  update[iBody].iaModule[iVar][*iEqn] = THERMINT;
+  update[iBody].iWaterAtmThermint = *iEqn;
+  (*iEqn)++;
+  }
+
+void fvFinalizeUpdateTSurfThermint(BODY *body, UPDATE *update,
+                                         int *iEqn, int iVar,int iBody,
+                                         int iFoo) {
+  update[iBody].iaModule[iVar][*iEqn] = THERMINT;
+  update[iBody].iTSurfThermint = *iEqn;
+  (*iEqn)++;
+  }
 
 
 /***************** RADHEAT Halts *****************/
@@ -3664,6 +4303,408 @@ void fvWriteTrefLind(BODY *body, CONTROL *control, OUTPUT *output,
   }
 }
 
+void fvWriteCarbMan(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dCarbMan;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteCarbPlate(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dCarbPlate;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteCarbSurf(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dCarbSurf;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteDCarbManDt(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = *(update[iBody].pdDCarbManDtThermint);
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else { 
+    *dTmp /= fdUnitsMass(units->iMass)/fdUnitsTime(units->iTime);
+    strcpy(cUnit, "kg/s");
+  }
+}
+
+void fvWriteDCarbPlateDt(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = *(update[iBody].pdDCarbPlateDtThermint);
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else { 
+    *dTmp /= fdUnitsMass(units->iMass)/fdUnitsTime(units->iTime);
+    strcpy(cUnit, "kg/s");
+  }
+}
+
+void fvWriteDCarbSurfDt(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = *(update[iBody].pdDCarbSurfDtThermint);
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else { 
+    *dTmp /= fdUnitsMass(units->iMass)/fdUnitsTime(units->iTime);
+    strcpy(cUnit, "kg/s");
+  }
+}
+
+
+void fvWriteCarbWeathFlux(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dCarbWeathFlux;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteCarbSFWFlux(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dCarbSFWFlux;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteCarbDegasFlux(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dCarbDegasFlux;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteCarbArcFlux(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dCarbArcFlux;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteCarbSubFlux(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dCarbSubFlux;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteCarbOcean(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dCarbOcean;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+
+void fvWriteCarbAtm(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dCarbAtm;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWritePlateSpeed(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dPlateSpeed;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWritePartialCO2(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dPartialCO2;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWritePSat(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dPSat;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+
+void fvWriteTSurf(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dTSurf;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteDTSurfDt(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = *(update[iBody].pdDTSurfDtThermint);
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else { 
+    // *dTmp /= fdUnitsTemp(units->iTemp);
+    // strcpy(cUnit, "K");
+  }
+}
+
+void fvWriteTempEff(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dTempEff;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteWaterMan(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dWaterMan;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteWaterOcean(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dWaterOcean;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteWaterAtm(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dWaterAtm;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteDWaterManDt(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = *(update[iBody].pdDWaterManDtThermint);
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else { 
+    *dTmp /= fdUnitsMass(units->iMass)/fdUnitsTime(units->iTime);
+    strcpy(cUnit, "kg/s");
+  }
+}
+
+void fvWriteDWaterOceanDt(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = *(update[iBody].pdDWaterOceanDtThermint);
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else { 
+    *dTmp /= fdUnitsMass(units->iMass)/fdUnitsTime(units->iTime);
+    strcpy(cUnit, "kg/s");
+  }
+}
+
+void fvWriteDWaterAtmDt(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = *(update[iBody].pdDWaterAtmDtThermint);
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else { 
+    *dTmp /= fdUnitsMass(units->iMass)/fdUnitsTime(units->iTime);
+    strcpy(cUnit, "kg/s");
+  }
+}
+
+void fvWriteVelScale(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dVelScale;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteWaterInMelt(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dWaterInMelt;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteSpreadRate(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dSpreadRate;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteSerpLayerThickness(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dSerpLayerThickness;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteWaterPrecipMass(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dWaterPrecipMass;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteWaterMORFlux(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dWaterMORFlux;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteWaterSubFlux(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dWaterSubFlux;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteDParWaterAtmDt(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dDParWaterAtmDt;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteDParCarbAtmDt(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dDParCarbAtmDt;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
+void fvWriteDOpacityDt(BODY *body, CONTROL *control, OUTPUT *output,
+                     SYSTEM *system, UNITS *units, UPDATE *update, int iBody,
+                     double *dTmp, char cUnit[]) {
+  *dTmp = body[iBody].dDOpacityDt;
+  if (output->bDoNeg[iBody]) {
+    *dTmp *= output->dNeg;
+    strcpy(cUnit, output->cNeg);
+  } else {
+  }
+}
+
 /**
   Initialize output, set variable names, descriptions, default units, default
   scalings, and write functions.
@@ -4320,6 +5361,344 @@ void fvInitializeOutputThermint(OUTPUT *output, fnWriteOutput fnWrite[]) {
   output[OUT_TDOTCORE].iModuleBit = THERMINT;
   fnWrite[OUT_TDOTCORE]           = &fvWriteTDotCore;
 
+  /* CarbMan */
+  sprintf(output[OUT_CARBMAN].cName, "CarbMan");
+  sprintf(output[OUT_CARBMAN].cDescr, "Mass of carbon in the mantle");
+  sprintf(output[OUT_CARBMAN].cNeg, "kg");
+  output[OUT_CARBMAN].bNeg       = 1;
+  output[OUT_CARBMAN].dNeg       = 1;
+  output[OUT_CARBMAN].iNum       = 1;
+  output[OUT_CARBMAN].iModuleBit = THERMINT;
+  fnWrite[OUT_CARBMAN]           = &fvWriteCarbMan;
+
+  /* CarbPlate */
+  sprintf(output[OUT_CARBPLATE].cName, "CarbPlate");
+  sprintf(output[OUT_CARBPLATE].cDescr, "Mass of carbon in the plate");
+  sprintf(output[OUT_CARBPLATE].cNeg, "kg");
+  output[OUT_CARBPLATE].bNeg       = 1;
+  output[OUT_CARBPLATE].dNeg       = 1;
+  output[OUT_CARBPLATE].iNum       = 1;
+  output[OUT_CARBPLATE].iModuleBit = THERMINT;
+  fnWrite[OUT_CARBPLATE]           = &fvWriteCarbPlate;
+
+  /* CarbSurf */
+  sprintf(output[OUT_CARBSURF].cName, "CarbSurf");
+  sprintf(output[OUT_CARBSURF].cDescr, "Mass of carbon on the surface");
+  sprintf(output[OUT_CARBSURF].cNeg, "kg");
+  output[OUT_CARBSURF].bNeg       = 1;
+  output[OUT_CARBSURF].dNeg       = 1;
+  output[OUT_CARBSURF].iNum       = 1;
+  output[OUT_CARBSURF].iModuleBit = THERMINT;
+  fnWrite[OUT_CARBSURF]           = &fvWriteCarbSurf;
+
+  /* DCarbManDt */
+  sprintf(output[OUT_DCARBMANDT].cName, "DCarbManDt");
+  sprintf(output[OUT_DCARBMANDT].cDescr, "Mass of carbon in the mantle over time");
+  sprintf(output[OUT_DCARBMANDT].cNeg, "kg/s");
+  output[OUT_DCARBMANDT].bNeg       = 1;
+  output[OUT_DCARBMANDT].dNeg       = 1;
+  output[OUT_DCARBMANDT].iNum       = 1;
+  output[OUT_DCARBMANDT].iModuleBit = THERMINT;
+  fnWrite[OUT_DCARBMANDT]           = &fvWriteDCarbManDt;
+
+  /* DCarbPlateDt */
+  sprintf(output[OUT_DCARBPLATEDT].cName, "DCarbPlateDt");
+  sprintf(output[OUT_DCARBPLATEDT].cDescr, "Mass of carbon in the plate over time");
+  sprintf(output[OUT_DCARBPLATEDT].cNeg, "kg/s");
+  output[OUT_DCARBPLATEDT].bNeg       = 1;
+  output[OUT_DCARBPLATEDT].dNeg       = 1;
+  output[OUT_DCARBPLATEDT].iNum       = 1;
+  output[OUT_DCARBPLATEDT].iModuleBit = THERMINT;
+  fnWrite[OUT_DCARBPLATEDT]           = &fvWriteDCarbPlateDt;
+
+  /* DCarbSurfDt */
+  sprintf(output[OUT_DCARBSURFDT].cName, "DCarbSurfDt");
+  sprintf(output[OUT_DCARBSURFDT].cDescr, "Mass of carbon on the surface over time");
+  sprintf(output[OUT_DCARBSURFDT].cNeg, "kg/s");
+  output[OUT_DCARBSURFDT].bNeg       = 1;
+  output[OUT_DCARBSURFDT].dNeg       = 1;
+  output[OUT_DCARBSURFDT].iNum       = 1;
+  output[OUT_DCARBSURFDT].iModuleBit = THERMINT;
+  fnWrite[OUT_DCARBSURFDT]           = &fvWriteDCarbSurfDt;
+
+  sprintf(output[OUT_CARBWEATHFLUX].cName, "CarbWeathFlux");
+  sprintf(output[OUT_CARBWEATHFLUX].cDescr, "Carbon weathering flux");
+  sprintf(output[OUT_CARBWEATHFLUX].cNeg, "kg/s");
+  output[OUT_CARBWEATHFLUX].bNeg       = 1;
+  output[OUT_CARBWEATHFLUX].dNeg       = 1;
+  output[OUT_CARBWEATHFLUX].iNum       = 1;
+  output[OUT_CARBWEATHFLUX].iModuleBit = THERMINT;
+  fnWrite[OUT_CARBWEATHFLUX]           = &fvWriteCarbWeathFlux;
+
+  sprintf(output[OUT_CARBSFWFLUX].cName, "CarbSFWFlux");
+  sprintf(output[OUT_CARBSFWFLUX].cDescr, "Carbon seafloor weathering flux");
+  sprintf(output[OUT_CARBSFWFLUX].cNeg, "kg/s");
+  output[OUT_CARBSFWFLUX].bNeg       = 1;
+  output[OUT_CARBSFWFLUX].dNeg       = 1;
+  output[OUT_CARBSFWFLUX].iNum       = 1;
+  output[OUT_CARBSFWFLUX].iModuleBit = THERMINT;
+  fnWrite[OUT_CARBSFWFLUX]           = &fvWriteCarbSFWFlux;
+
+  sprintf(output[OUT_CARBDEGASFLUX].cName, "CarbDegasFlux");
+  sprintf(output[OUT_CARBDEGASFLUX].cDescr, "Carbon degassing flux");
+  sprintf(output[OUT_CARBDEGASFLUX].cNeg, "kg/s");
+  output[OUT_CARBDEGASFLUX].bNeg       = 1;
+  output[OUT_CARBDEGASFLUX].dNeg       = 1;
+  output[OUT_CARBDEGASFLUX].iNum       = 1;
+  output[OUT_CARBDEGASFLUX].iModuleBit = THERMINT;
+  fnWrite[OUT_CARBDEGASFLUX]           = &fvWriteCarbDegasFlux;
+
+  sprintf(output[OUT_CARBARCFLUX].cName, "CarbArcFlux");
+  sprintf(output[OUT_CARBARCFLUX].cDescr, "Carbon arc flux");
+  sprintf(output[OUT_CARBARCFLUX].cNeg, "kg/s");
+  output[OUT_CARBARCFLUX].bNeg       = 1;
+  output[OUT_CARBARCFLUX].dNeg       = 1;
+  output[OUT_CARBARCFLUX].iNum       = 1;
+  output[OUT_CARBARCFLUX].iModuleBit = THERMINT;
+  fnWrite[OUT_CARBARCFLUX]           = &fvWriteCarbArcFlux;
+
+  sprintf(output[OUT_CARBSUBFLUX].cName, "CarbSubFlux");
+  sprintf(output[OUT_CARBSUBFLUX].cDescr, "Carbon subduction flux");
+  sprintf(output[OUT_CARBSUBFLUX].cNeg, "kg/s");
+  output[OUT_CARBSUBFLUX].bNeg       = 1;
+  output[OUT_CARBSUBFLUX].dNeg       = 1;
+  output[OUT_CARBSUBFLUX].iNum       = 1;
+  output[OUT_CARBSUBFLUX].iModuleBit = THERMINT;
+  fnWrite[OUT_CARBSUBFLUX]           = &fvWriteCarbSubFlux;
+
+  sprintf(output[OUT_CARBOCEAN].cName, "CarbOcean");
+  sprintf(output[OUT_CARBOCEAN].cDescr, "Carbon ocean mass");
+  sprintf(output[OUT_CARBOCEAN].cNeg, "kg");
+  output[OUT_CARBOCEAN].bNeg       = 1;
+  output[OUT_CARBOCEAN].dNeg       = 1;
+  output[OUT_CARBOCEAN].iNum       = 1;
+  output[OUT_CARBOCEAN].iModuleBit = THERMINT;
+  fnWrite[OUT_CARBOCEAN]           = &fvWriteCarbOcean;
+
+  sprintf(output[OUT_CARBATM].cName, "CarbAtm");
+  sprintf(output[OUT_CARBATM].cDescr, "Carbon atmospheric mass"); 
+  sprintf(output[OUT_CARBATM].cNeg, "kg");
+  output[OUT_CARBATM].bNeg       = 1;
+  output[OUT_CARBATM].dNeg       = 1;
+  output[OUT_CARBATM].iNum       = 1;
+  output[OUT_CARBATM].iModuleBit = THERMINT;
+  fnWrite[OUT_CARBATM]           = &fvWriteCarbAtm;
+
+  sprintf(output[OUT_PLATESPEED].cName, "PlateSpeed");
+  sprintf(output[OUT_PLATESPEED].cDescr, "Tectonic plate speed"); 
+  sprintf(output[OUT_PLATESPEED].cNeg, "m/s");
+  output[OUT_PLATESPEED].bNeg       = 1;
+  output[OUT_PLATESPEED].dNeg       = 1;
+  output[OUT_PLATESPEED].iNum       = 1;
+  output[OUT_PLATESPEED].iModuleBit = THERMINT;
+  fnWrite[OUT_PLATESPEED]           = &fvWritePlateSpeed;
+
+  sprintf(output[OUT_PARTIALCO2].cName, "PartialCO2");
+  sprintf(output[OUT_PARTIALCO2].cDescr, "Partial pressure of atmospheric CO2"); 
+  sprintf(output[OUT_PARTIALCO2].cNeg, "Pa");
+  output[OUT_PARTIALCO2].bNeg       = 1;
+  output[OUT_PARTIALCO2].dNeg       = 1;
+  output[OUT_PARTIALCO2].iNum       = 1;
+  output[OUT_PARTIALCO2].iModuleBit = THERMINT;
+  fnWrite[OUT_PARTIALCO2]           = &fvWritePartialCO2;
+
+  sprintf(output[OUT_PSAT].cName, "PSat");
+  sprintf(output[OUT_PSAT].cDescr, "Saturation vapor pressure"); 
+  sprintf(output[OUT_PSAT].cNeg, "Pa");
+  output[OUT_PSAT].bNeg       = 1;
+  output[OUT_PSAT].dNeg       = 1;
+  output[OUT_PSAT].iNum       = 1;
+  output[OUT_PSAT].iModuleBit = THERMINT;
+  fnWrite[OUT_PSAT]           = &fvWritePSat;
+
+  sprintf(output[OUT_TSURF].cName, "TSurf");
+  sprintf(output[OUT_TSURF].cDescr, "Surface temperature"); 
+  sprintf(output[OUT_TSURF].cNeg, "K");
+  output[OUT_TSURF].bNeg       = 1;
+  output[OUT_TSURF].dNeg       = 1;
+  output[OUT_TSURF].iNum       = 1;
+  output[OUT_TSURF].iModuleBit = THERMINT;
+  fnWrite[OUT_TSURF]           = &fvWriteTSurf;
+
+  /* DTSurfDt */
+  sprintf(output[OUT_DTSURFDT].cName, "DTSurfDt");
+  sprintf(output[OUT_DTSURFDT].cDescr, "Surface temperature over time");
+  sprintf(output[OUT_DTSURFDT].cNeg, "K/s");
+  output[OUT_DTSURFDT].bNeg       = 1;
+  output[OUT_DTSURFDT].dNeg       = 1;
+  output[OUT_DTSURFDT].iNum       = 1;
+  output[OUT_DTSURFDT].iModuleBit = THERMINT;
+  fnWrite[OUT_DTSURFDT]           = &fvWriteDTSurfDt;
+
+  sprintf(output[OUT_TEMPEFF].cName, "TempEff");
+  sprintf(output[OUT_TEMPEFF].cDescr, "Effective temperature"); 
+  sprintf(output[OUT_TEMPEFF].cNeg, "K");
+  output[OUT_TEMPEFF].bNeg       = 1;
+  output[OUT_TEMPEFF].dNeg       = 1;
+  output[OUT_TEMPEFF].iNum       = 1;
+  output[OUT_TEMPEFF].iModuleBit = THERMINT;
+  fnWrite[OUT_TEMPEFF]           = &fvWriteTempEff;
+
+  /* WaterMan */
+  sprintf(output[OUT_WATERMAN].cName, "WaterMan");
+  sprintf(output[OUT_WATERMAN].cDescr, "Mass of water in the mantle");
+  sprintf(output[OUT_WATERMAN].cNeg, "kg");
+  output[OUT_WATERMAN].bNeg       = 1;
+  output[OUT_WATERMAN].dNeg       = 1;
+  output[OUT_WATERMAN].iNum       = 1;
+  output[OUT_WATERMAN].iModuleBit = THERMINT;
+  fnWrite[OUT_WATERMAN]           = &fvWriteWaterMan;
+
+  /* WaterOcean */
+  sprintf(output[OUT_WATEROCEAN].cName, "WaterOcean");
+  sprintf(output[OUT_WATEROCEAN].cDescr, "Mass of water in the ocean");
+  sprintf(output[OUT_WATEROCEAN].cNeg, "kg");
+  output[OUT_WATEROCEAN].bNeg       = 1;
+  output[OUT_WATEROCEAN].dNeg       = 1;
+  output[OUT_WATEROCEAN].iNum       = 1;
+  output[OUT_WATEROCEAN].iModuleBit = THERMINT;
+  fnWrite[OUT_WATEROCEAN]           = &fvWriteWaterOcean;
+
+  /* WaterAtm */
+  sprintf(output[OUT_WATERATM].cName, "WaterAtm");
+  sprintf(output[OUT_WATERATM].cDescr, "Mass of water in the atmosphere");
+  sprintf(output[OUT_WATERATM].cNeg, "kg");
+  output[OUT_WATERATM].bNeg       = 1;
+  output[OUT_WATERATM].dNeg       = 1;
+  output[OUT_WATERATM].iNum       = 1;
+  output[OUT_WATERATM].iModuleBit = THERMINT;
+  fnWrite[OUT_WATERATM]           = &fvWriteWaterAtm;
+
+  /* DWaterManDt */
+  sprintf(output[OUT_DWATERMANDT].cName, "DWaterManDt");
+  sprintf(output[OUT_DWATERMANDT].cDescr, "Mass of water in the mantle over time");
+  sprintf(output[OUT_DWATERMANDT].cNeg, "kg/s");
+  output[OUT_DWATERMANDT].bNeg       = 1;
+  output[OUT_DWATERMANDT].dNeg       = 1;
+  output[OUT_DWATERMANDT].iNum       = 1;
+  output[OUT_DWATERMANDT].iModuleBit = THERMINT;
+  fnWrite[OUT_DWATERMANDT]           = &fvWriteDWaterManDt;
+
+  /* DWaterOceanDt */
+  sprintf(output[OUT_DWATEROCEANDT].cName, "DWaterOceanDt");
+  sprintf(output[OUT_DWATEROCEANDT].cDescr, "Mass of water in the ocean over time");
+  sprintf(output[OUT_DWATEROCEANDT].cNeg, "kg/s");
+  output[OUT_DWATEROCEANDT].bNeg       = 1;
+  output[OUT_DWATEROCEANDT].dNeg       = 1;
+  output[OUT_DWATEROCEANDT].iNum       = 1;
+  output[OUT_DWATEROCEANDT].iModuleBit = THERMINT;
+  fnWrite[OUT_DWATEROCEANDT]           = &fvWriteDWaterOceanDt;
+
+  /* DWaterAtmDt */
+  sprintf(output[OUT_DWATERATMDT].cName, "DWaterAtmDt");
+  sprintf(output[OUT_DWATERATMDT].cDescr, "Mass of water on the surface over time");
+  sprintf(output[OUT_DWATERATMDT].cNeg, "kg/s");
+  output[OUT_DWATERATMDT].bNeg       = 1;
+  output[OUT_DWATERATMDT].dNeg       = 1;
+  output[OUT_DWATERATMDT].iNum       = 1;
+  output[OUT_DWATERATMDT].iModuleBit = THERMINT;
+  fnWrite[OUT_DWATERATMDT]           = &fvWriteDWaterAtmDt;
+
+  /* VelScale */
+  sprintf(output[OUT_VELSCALE].cName, "VelScale");
+  sprintf(output[OUT_VELSCALE].cDescr, "Velocity Scale");
+  sprintf(output[OUT_VELSCALE].cNeg, "m/s");
+  output[OUT_VELSCALE].bNeg       = 1;
+  output[OUT_VELSCALE].dNeg       = 1;
+  output[OUT_VELSCALE].iNum       = 1;
+  output[OUT_VELSCALE].iModuleBit = THERMINT;
+  fnWrite[OUT_VELSCALE]           = &fvWriteVelScale;
+
+  /* WaterInMelt */
+  sprintf(output[OUT_WATERINMELT].cName, "WaterInMelt");
+  sprintf(output[OUT_WATERINMELT].cDescr, "Mass fraction of water in the melt");
+  sprintf(output[OUT_WATERINMELT].cNeg, "nd");
+  output[OUT_WATERINMELT].bNeg       = 1;
+  output[OUT_WATERINMELT].dNeg       = 1;
+  output[OUT_WATERINMELT].iNum       = 1;
+  output[OUT_WATERINMELT].iModuleBit = THERMINT;
+  fnWrite[OUT_WATERINMELT]           = &fvWriteWaterInMelt;
+
+  /* SpreadRate */
+  sprintf(output[OUT_SPREADRATE].cName, "SpreadRate");
+  sprintf(output[OUT_SPREADRATE].cDescr, "Areal spreading rate of plates");
+  sprintf(output[OUT_SPREADRATE].cNeg, "m^2/s");
+  output[OUT_SPREADRATE].bNeg       = 1;
+  output[OUT_SPREADRATE].dNeg       = 1;
+  output[OUT_SPREADRATE].iNum       = 1;
+  output[OUT_SPREADRATE].iModuleBit = THERMINT;
+  fnWrite[OUT_SPREADRATE]           = &fvWriteSpreadRate;
+
+  /* SerpLayerThickness */
+  sprintf(output[OUT_SERPLAYERTHICKNESS].cName, "SerpLayerThickness");
+  sprintf(output[OUT_SERPLAYERTHICKNESS].cDescr, "Thickness of the serpentinized layer");
+  sprintf(output[OUT_SERPLAYERTHICKNESS].cNeg, "m");
+  output[OUT_SERPLAYERTHICKNESS].bNeg       = 1;
+  output[OUT_SERPLAYERTHICKNESS].dNeg       = 1;
+  output[OUT_SERPLAYERTHICKNESS].iNum       = 1;
+  output[OUT_SERPLAYERTHICKNESS].iModuleBit = THERMINT;
+  fnWrite[OUT_SERPLAYERTHICKNESS]           = &fvWriteSerpLayerThickness;
+
+  /* WaterPrecipMass */
+  sprintf(output[OUT_WATERPRECIPMASS].cName, "WaterPrecipMass");
+  sprintf(output[OUT_WATERPRECIPMASS].cDescr, "Mass of water to precipitate or evaporate");
+  sprintf(output[OUT_WATERPRECIPMASS].cNeg, "m");
+  output[OUT_WATERPRECIPMASS].bNeg       = 1;
+  output[OUT_WATERPRECIPMASS].dNeg       = 1;
+  output[OUT_WATERPRECIPMASS].iNum       = 1;
+  output[OUT_WATERPRECIPMASS].iModuleBit = THERMINT;
+  fnWrite[OUT_WATERPRECIPMASS]           = &fvWriteWaterPrecipMass;
+
+  /* WaterMORFlux */
+  sprintf(output[OUT_WATERMORFLUX].cName, "WaterMORFlux");
+  sprintf(output[OUT_WATERMORFLUX].cDescr, "Rate of midocean ridge degassing of water");
+  sprintf(output[OUT_WATERMORFLUX].cNeg, "kg/s");
+  output[OUT_WATERMORFLUX].bNeg       = 1;
+  output[OUT_WATERMORFLUX].dNeg       = 1;
+  output[OUT_WATERMORFLUX].iNum       = 1;
+  output[OUT_WATERMORFLUX].iModuleBit = THERMINT;
+  fnWrite[OUT_WATERMORFLUX]           = &fvWriteWaterMORFlux;
+
+    /* WaterSubFlux */
+  sprintf(output[OUT_WATERSUBFLUX].cName, "WaterSubFlux");
+  sprintf(output[OUT_WATERSUBFLUX].cDescr, "Rate of subduction of water");
+  sprintf(output[OUT_WATERSUBFLUX].cNeg, "kg/s");
+  output[OUT_WATERSUBFLUX].bNeg       = 1;
+  output[OUT_WATERSUBFLUX].dNeg       = 1;
+  output[OUT_WATERSUBFLUX].iNum       = 1;
+  output[OUT_WATERSUBFLUX].iModuleBit = THERMINT;
+  fnWrite[OUT_WATERSUBFLUX]           = &fvWriteWaterSubFlux;
+
+  /* DParWaterAtmDt */
+  sprintf(output[OUT_DPARWATERATMDT].cName, "DParWaterAtmDt");
+  sprintf(output[OUT_DPARWATERATMDT].cDescr, "Partial pressure of water in the atmosphere over time");
+  sprintf(output[OUT_DPARWATERATMDT].cNeg, "Pa/s");
+  output[OUT_DPARWATERATMDT].bNeg       = 1;
+  output[OUT_DPARWATERATMDT].dNeg       = 1;
+  output[OUT_DPARWATERATMDT].iNum       = 1;
+  output[OUT_DPARWATERATMDT].iModuleBit = THERMINT;
+  fnWrite[OUT_DPARWATERATMDT]           = &fvWriteDParWaterAtmDt;
+
+  /* DParCarbAtmDt */
+  sprintf(output[OUT_DPARCARBATMDT].cName, "DParCarbAtmDt");
+  sprintf(output[OUT_DPARCARBATMDT].cDescr, "Partial pressure of CO2 in the atmosphere over time");
+  sprintf(output[OUT_DPARCARBATMDT].cNeg, "Pa/s");
+  output[OUT_DPARCARBATMDT].bNeg       = 1;
+  output[OUT_DPARCARBATMDT].dNeg       = 1;
+  output[OUT_DPARCARBATMDT].iNum       = 1;
+  output[OUT_DPARCARBATMDT].iModuleBit = THERMINT;
+  fnWrite[OUT_DPARCARBATMDT]           = &fvWriteDParCarbAtmDt;
+
+  /* DOpacityDt */
+  sprintf(output[OUT_DOPACITYDT].cName, "DOpacityDt");
+  sprintf(output[OUT_DOPACITYDT].cDescr, "Surface opacity over time");
+  sprintf(output[OUT_DOPACITYDT].cNeg, "1/s");
+  output[OUT_DOPACITYDT].bNeg       = 1;
+  output[OUT_DOPACITYDT].dNeg       = 1;
+  output[OUT_DOPACITYDT].iNum       = 1;
+  output[OUT_DOPACITYDT].iModuleBit = THERMINT;
+  fnWrite[OUT_DOPACITYDT]           = &fvWriteDOpacityDt;
+
   /* Constants */
   /* TrefLind */
   sprintf(output[OUT_TREFLIND].cName, "TrefLind");
@@ -4444,6 +5823,23 @@ void fvAddModuleThermint(CONTROL *control, MODULE *module, int iBody,
   module->fnFinalizeUpdateTMan[iBody][iModule] = &fvFinalizeUpdateTManThermint;
   module->fnFinalizeUpdateTCore[iBody][iModule] =
         &fvFinalizeUpdateTCoreThermint;
+  
+  module->fnFinalizeUpdateCarbMan[iBody][iModule] =
+        &fvFinalizeUpdateCarbManThermint;
+  module->fnFinalizeUpdateCarbPlate[iBody][iModule] =
+        &fvFinalizeUpdateCarbPlateThermint;
+  module->fnFinalizeUpdateCarbSurf[iBody][iModule] =
+        &fvFinalizeUpdateCarbSurfThermint;
+  
+  module->fnFinalizeUpdateWaterMan[iBody][iModule] =
+        &fvFinalizeUpdateWaterManThermint;
+  module->fnFinalizeUpdateWaterOcean[iBody][iModule] =
+        &fvFinalizeUpdateWaterOceanThermint;
+  module->fnFinalizeUpdateWaterAtm[iBody][iModule] =
+        &fvFinalizeUpdateWaterAtmThermint;
+
+  module->fnFinalizeUpdateTSurf[iBody][iModule] =
+        &fvFinalizeUpdateTSurfThermint;
 }
 
 /************* THERMINT Functions ************/
@@ -4541,8 +5937,13 @@ double fdSignTJumpLMan(BODY *body, int iBody) {
   @return Arrhenius component of upper mantle viscosity
 */
 double fdViscUManArr(BODY *body, int iBody) {
-  return body[iBody].dViscRef *
-         exp(body[iBody].dActViscMan / (GASCONSTANT * body[iBody].dTUMan));
+  // return body[iBody].dViscRef *
+  //        exp(body[iBody].dActViscMan / (GASCONSTANT * body[iBody].dTUMan));
+  return body[iBody].dViscRef * 
+          exp((body[iBody].dActViscMan / GASCONSTANT -
+          body[iBody].dWaterViscMan * (body[iBody].dWaterMan / EMASSMAN)) /
+          body[iBody].dTUMan);
+  // return body[iBody].dViscRef*exp(body[iBody].dActViscMan/(GASCONSTANT*body[iBody].dTUMan));
 }
 /**
   Function compute full upper mantle viscosity
@@ -4577,6 +5978,7 @@ double fdViscLMan(BODY *body, int iBody) {
 */
 double fdViscMMan(BODY *body, int iBody) {
   return body[iBody].dViscUMan * (VISCJUMPMMAN);
+  //return body[iBody].dViscUManArr * (VISCJUMPMMAN);
 }
 /**
   Function compute mantle viscosity jump
@@ -4800,7 +6202,7 @@ double fdTDepthMeltMan(BODY *body, int iBody) {
 /**
   Function compute temperature jump across upper mantle melt region, excluding
   the adiabatic component (i.e. just the advective component):
-  TDepthMeltMan-TSURF-ADGRADMAN*DepthMeltMan
+  TDepthMeltMats n-TSURF-ADGRADMAN*DepthMeltMan
 
   @param body Body struct
   @param iBody Index of body
@@ -5129,8 +6531,9 @@ double fdMagPauseRad(BODY *body, int iBody) {
   @return Heat flux across upper mantle thermal boundary layer
 */
 double fdHfluxUMan(BODY *body, int iBody) {
-  return (THERMCONDUMAN)*body[iBody].dSignTJumpUMan * body[iBody].dTJumpUMan /
+  double dHfluxUMan = (THERMCONDUMAN)*body[iBody].dSignTJumpUMan * body[iBody].dTJumpUMan /
          body[iBody].dBLUMan;
+  return dHfluxUMan;
 }
 /**
   Function compute heat flux across lower mantle thermal boundary layer
@@ -5165,7 +6568,9 @@ double fdHfluxCMB(BODY *body, int iBody) {
   @return Heat flow across upper mantle thermal boundary layer
 */
 double fdHflowUMan(BODY *body, int iBody) {
-  return body[iBody].dManHFlowPref * (EAREASURF)*fdHfluxUMan(body, iBody);
+  double dHfluxUMan = fdHfluxUMan(body, iBody);
+  double dHflowUMan = body[iBody].dManHFlowPref * (EAREASURF)*dHfluxUMan;
+  return dHflowUMan;
 }
 /**
   Function compute heat flow across surface of mantle
@@ -5324,9 +6729,10 @@ double fdMassICDot(BODY *body, UPDATE *update, int iBody) {
 // XXX RadPowerMan should be moved to RadHeat
 double fdPowerThermint(BODY *body, int iBody) {
   // double fdHflowSecManThermint(BODY *body,int iBody) {
-  return body[iBody].dHflowUMan + body[iBody].dHflowMeltMan -
+  double dPowerThermint = body[iBody].dHflowUMan + body[iBody].dHflowMeltMan -
          body[iBody].dHflowLMan - body[iBody].dHflowLatentMan -
          body[iBody].dRadPowerMan;
+  return dPowerThermint;
 }
 
 /**
@@ -5374,7 +6780,8 @@ double fdPowerGravIC(BODY *body, UPDATE *update, int iBody) {
 */
 double fdTDotMan(BODY *body, SYSTEM *system, int *iaBody) {
   int iBody = iaBody[0];
-  return -body[iBody].dHflowSecMan / ((EMASSMAN) * (SPECHEATMAN));
+  double dTDotMan = -body[iBody].dHflowSecMan / ((EMASSMAN) * (SPECHEATMAN));
+  return dTDotMan;
 }
 /**
   Function compute time derivative of average core temperature
@@ -5461,39 +6868,166 @@ double root(int type, BODY *body, int iBody, double guess1, double guess2,
 
   @return Depth to solidus-adiabat intersection (melt layer)
 */
+// double cubicroot(int type, BODY *body, int iBody) {
+//   double a = 0, b = 0, c = 0, d = 0; // coefficients of cubic polynomial.
+//   if (type == 0) { // type=0 is melt intersection in adiabatic part of mantle,
+//                    // away from TBL's.
+//     a = ASOLIDUS;
+//     b = BSOLIDUS;
+//     c = CSOLIDUS + ADGRADMAN;
+//     d = DSOLIDUS - body[iBody].dTUMan -
+//         (ADGRADMAN) * ((ERMAN)-body[iBody].dBLUMan);
+//   }
+//   if (type == 1) { // type=1 is melt intersection within UM TBL.
+//     a = ASOLIDUS;
+//     b = BSOLIDUS;
+//     c = CSOLIDUS + body[iBody].dTJumpUMan / body[iBody].dBLUMan;
+//     d = DSOLIDUS - body[iBody].dTSurf -
+//         body[iBody].dTJumpUMan / body[iBody].dBLUMan * (ERMAN);
+//   }
+//   double delta0 = pow(b, 2.0) - 3.0 * a * c; // cubic root component (wikip)
+//   double delta1 = 2.0 * cube(b) - 9.0 * a * b * c +
+//                   27.0 * pow(a, 2.0) * d; // cubic root component (wikip)
+//   if ((pow(delta1, 2.0) - 4.0 * cube(delta0)) < 0) {
+//     //        printf("imaginary cubic root!\n");
+//     //        exit(1);
+//     return 0; // imaginary root implies no intersection, no melt layer?
+//   }
+//   double croot =
+//         pow((delta1 + sqrt(pow(delta1, 2.0) - 4.0 * cube(delta0))) / 2.0,
+//             1. / 3); // cubic root component (wikip)
+//   double root =
+//         -1.0 / (3.0 * a) *
+//         (b + croot + delta0 / croot); // real cubic root, radius of layer.
+//   return ERMAN - root;                // Return depth.
+// }
+
 double cubicroot(int type, BODY *body, int iBody) {
   double a = 0, b = 0, c = 0, d = 0; // coefficients of cubic polynomial.
+  double dGravSurf;
+  dGravSurf = BIGG * body[iBody].dMass / pow(body[iBody].dRadius, 2);
+
   if (type == 0) { // type=0 is melt intersection in adiabatic part of mantle,
                    // away from TBL's.
-    a = ASOLIDUS;
-    b = BSOLIDUS;
-    c = CSOLIDUS + ADGRADMAN;
-    d = DSOLIDUS - body[iBody].dTUMan -
-        (ADGRADMAN) * ((ERMAN)-body[iBody].dBLUMan);
+    a = -(ASOLIDUS);
+    b = (3 * (ASOLIDUS) * (REARTH) + (BSOLIDUS));
+    c = (-3 * (ASOLIDUS)*pow(REARTH, 2) - 2 * (BSOLIDUS) * (REARTH) -
+         (CSOLIDUS)) -
+        ADGRADMAN;
+    d = ((ASOLIDUS)*pow(REARTH, 3) + (BSOLIDUS)*pow(REARTH, 2) +
+         (CSOLIDUS) * (REARTH) + (DSOLIDUS)) -
+        body[iBody].dTUMan + (ADGRADMAN) * (body[iBody].dBLUMan);
   }
   if (type == 1) { // type=1 is melt intersection within UM TBL.
-    a = ASOLIDUS;
-    b = BSOLIDUS;
-    c = CSOLIDUS + body[iBody].dTJumpUMan / body[iBody].dBLUMan;
-    d = DSOLIDUS - body[iBody].dTSurf -
-        body[iBody].dTJumpUMan / body[iBody].dBLUMan * (ERMAN);
+    a = -(ASOLIDUS);
+    b = (3 * (ASOLIDUS) * (REARTH) + (BSOLIDUS));
+    c = (-3 * (ASOLIDUS)*pow(REARTH, 2) - 2 * (BSOLIDUS) * (REARTH) -
+         (CSOLIDUS)) -
+        body[iBody].dTJumpUMan / body[iBody].dBLUMan;
+    d = ((ASOLIDUS)*pow(REARTH, 3) + (BSOLIDUS)*pow(REARTH, 2) +
+         (CSOLIDUS) * (REARTH) + (DSOLIDUS)) -
+        body[iBody].dTSurf;
   }
+  if (type == 2) { // type=2 is melt intersection within stagnant lid
+    return 0;      // Assume no melt in stagnant lid
+  }
+
   double delta0 = pow(b, 2.0) - 3.0 * a * c; // cubic root component (wikip)
   double delta1 = 2.0 * cube(b) - 9.0 * a * b * c +
                   27.0 * pow(a, 2.0) * d; // cubic root component (wikip)
-  if ((pow(delta1, 2.0) - 4.0 * cube(delta0)) < 0) {
-    //        printf("imaginary cubic root!\n");
-    //        exit(1);
-    return 0; // imaginary root implies no intersection, no melt layer?
+  double discrim = 4 * cube(delta0) - pow(delta1, 2.0);
+  double root    = 0;
+
+  if (discrim < 0) {
+    // There is one real root
+    double croot =
+          pow((delta1 + sqrt(pow(delta1, 2.0) - 4.0 * cube(delta0))) / 2.0,
+              1. / 3); // cubic root component (wikip)
+    root = -1.0 / (3.0 * a) *
+           (b + croot + delta0 / croot); // real cubic root, radius of layer.
   }
-  double croot =
-        pow((delta1 + sqrt(pow(delta1, 2.0) - 4.0 * cube(delta0))) / 2.0,
-            1. / 3); // cubic root component (wikip)
-  double root =
-        -1.0 / (3.0 * a) *
-        (b + croot + delta0 / croot); // real cubic root, radius of layer.
-  return ERMAN - root;                // Return depth.
+
+  if (discrim > 0) {
+    // There are three real roots
+    double possibleroot1;
+    double possibleroot2;
+    double possibleroot3;
+
+    // Reduce to a depressed cubic :(
+    double depress_p = ((3 * a * c) - pow(b, 2.0)) / (3 * pow(a, 2.0));
+    double depress_q =
+          (2 * pow(b, 3.0) - 9 * a * b * c + 27 * pow(a, 2.0) * d) /
+          (27 * pow(a, 3.0));
+
+    // Viete solution (according to wikipedia,
+    // https://en.wikipedia.org/w/index.php?title=Cubic_equation&diff=1021234172&oldid=1021204917)
+    // Have to un-depress the solutions here, so true solution, x_i = t_i -
+    // b/(3*a)
+    possibleroot1 = 2 * sqrt(-depress_p / 3) *
+                          cos((1 / 3.0) * acos(3 * depress_q / (2 * depress_p) *
+                                               sqrt(-3 / depress_p))) -
+                    b / (3 * a);
+    possibleroot2 = 2 * sqrt(-depress_p / 3) *
+                          cos((1 / 3.0) * acos(3 * depress_q / (2 * depress_p) *
+                                               sqrt(-3 / depress_p)) -
+                              2 * PI / 3) -
+                    b / (3 * a);
+    possibleroot3 = 2 * sqrt(-depress_p / 3) *
+                          cos((1 / 3.0) * acos(3 * depress_q / (2 * depress_p) *
+                                               sqrt(-3 / depress_p)) -
+                              4 * PI / 3) -
+                    b / (3 * a);
+
+    int root1good = 0;
+    int root2good = 0;
+    int root3good = 0;
+
+    if (possibleroot1 > 0 &&
+        possibleroot1 < (ERADIUS - ERCORE)) {
+      // The root should be non-zero and within the mantle
+      root1good = 1;
+    }
+
+    if (possibleroot2 > 0 &&
+        possibleroot2 < (ERADIUS - ERCORE)) {
+      root2good = 1;
+    }
+
+    if (possibleroot3 > 0 &&
+        possibleroot3 < (ERADIUS - ERCORE)) {
+      root3good = 1;
+    }
+
+    if (root1good && root2good) {
+      fprintf(stderr,
+              "WARNING: Multiple geotherm-solidus intersections in %s!\n",
+              body[iBody].cName);
+    }
+
+    if (root1good && root3good) {
+      fprintf(stderr,
+              "WARNING: Multiple geotherm-solidus intersections in %s!\n",
+              body[iBody].cName);
+    }
+
+    if (root2good && root3good) {
+      fprintf(stderr,
+              "WARNING: Multiple geotherm-solidus intersections in %s!\n",
+              body[iBody].cName);
+    }
+
+    if (root1good)
+      root = possibleroot1;
+    if (root2good)
+      root = possibleroot2;
+    if (root3good)
+      root = possibleroot3;
+  }
+
+
+  return root; // Return root, compare to depth limit in fdMeltDepthMan.
 }
+
 /**
   Function compute mantle solidus at a given depth
 
@@ -5553,4 +7087,347 @@ double fdSurfEnFlux(BODY *body, SYSTEM *system, UPDATE *update, int iBody,
   // of mantle, +crust makes it total.
   return (body[iBody].dHflowUMan + body[iBody].dRadPowerCrust) /
          (4 * PI * body[iBody].dRadius * body[iBody].dRadius);
+}
+
+double fdPartialCO2(BODY *body, int iBody) {
+  /* Use the time-varying quantity CarbSurf (kg) to solve for the partial pressure of CO2 (Pa).
+     Solves a quadratic equation and identifies the real/physical solution.
+  */
+  double a = (EAREASURF) / ( (CO2MOLMASS) * (GRAVSURF) );
+  double b = -1.0 * ( (body[iBody].dCarbSurf / CO2MOLMASS) + ((EAREASURF * CO2SOLUBILITY) / (CO2MOLMASS * GRAVSURF)) + OCEANMOLES);
+  double c = ((body[iBody].dCarbSurf / CO2MOLMASS) * CO2SOLUBILITY);
+  double discrim = (pow(b,2) - 4.0 * a * c);
+  double root = 0;
+
+// Check for real roots
+  if (discrim < 0) {
+    fprintf(stderr, "EXITING CODE: Imaginary roots in P[CO2]! (thermint.c)");
+    exit(EXIT_INPUT);
+  }
+
+  if (fabs(discrim) <= 1e-9) {
+    root = -b/(2.0*a);
+  }
+
+  if (discrim > 0) {
+    double root1 = (-b + sqrt( pow(b,2) - 4.0 * a * c))/(2.0*a);
+    double root2 = (-b - sqrt( pow(b,2) - 4.0 * a * c))/(2.0*a);
+
+  int root1good = 0;
+  int root2good = 0;
+
+  if (root1 > 0 && root1 < ((TOTALEARTHCARB * CO2MOLMASS * GRAVSURF)/EAREASURF)) {
+    root1good = 1;
+  }
+
+  if (root2 > 0 && root2 < ((TOTALEARTHCARB * CO2MOLMASS * GRAVSURF)/EAREASURF)) {
+    root2good = 1;
+  }
+
+  if (root1good && root2good) {
+    fprintf(stderr, "WARNING: Multiple PCO2 values in %s!\n", body[iBody].cName);
+  }
+
+  if (root1good) 
+    root = root1;
+  if (root2good)
+    root = root2; 
+  }
+
+return root;
+}
+
+double fdTempEff(BODY *body, int iBody) {
+  double dTempEff = pow(body[iBody].dInstellation * (1.0 - ALBEDO) / (4.0 * STEFBOLTZCONSTANT), 0.25);
+  return dTempEff;
+}
+
+double fdTSurfFoley(BODY *body, int iBody) {
+  double dTSurf = (PRESENTSURFTEMP) + 2.0 * (body[iBody].dTempEff - PRESENTEFFTEMP) 
+                  + 4.6*(pow((body[iBody].dPartialCO2 / (PRESENTCO2)), 0.346)) - 4.6; // Foley 2015
+  // Rename this function so that we aren't calling it anymore
+  // Driscoll + Bercovici 2013 --> make this a primary variable so we can add a diff eq
+  return dTSurf;
+}
+
+double fdPlateSpeedFoley(BODY *body, int iBody) {
+  double dPlateSpeed = 2.5537429969e-9 - (3.485689659e-12 * body[iBody].dTSurf); // Foley 2015 (EQ 17)
+  return dPlateSpeed;
+}
+
+double fdPlateSpeedSeales(BODY *body, int iBody) {
+  double dPlateSpeed = body[iBody].dVelScale;
+  return dPlateSpeed;
+}
+
+double fdPSat(BODY *body, int iBody) {
+  double term1 = (-1.0 * H2OMOLMASS * H2OLATENTHEAT)/(GASCONSTANT);
+  double term2 = (1.0 / body[iBody].dTSurf) - (1.0 / (SATREFTEMP));
+  double dPSat = SATVAPEREF * exp(term1 * term2);
+  return dPSat;
+}
+
+double fdCarbSubFlux(BODY *body, int iBody) {
+  double A_p = (EAREASURF) * (1.0 - (PRESENTLANDFRAC));
+  double dCarbSubFlux = ((body[iBody].dCarbPlate * body[iBody].dPlateSpeed * (LENTRENCH)) / A_p);
+
+ // if (bFloatComparison(body[iBody].dFMeltUMan,0.0)) {
+ //    dCarbSubFlux = dTINY;
+ //  }
+
+  return dCarbSubFlux;
+}
+
+double fdCarbArcFlux(BODY *body, int iBody) {
+  // double dCarbArcFlux = ((CARBSUBDEGASFRAC) * body[iBody].dCarbSubFlux); // already in units of mass
+  double dCarbArcFlux = ((CARBSUBDEGASFRAC) * body[iBody].dCarbSubFlux); 
+  return dCarbArcFlux;
+}
+
+double fdCarbDegasFlux(BODY *body, int iBody) {
+  // double dCarbDegasFlux =  EMANDENS * body[iBody].dFMeltUMan * (body[iBody].dCarbMan / EMASSMAN) * 
+  //                         body[iBody].dDepthMeltMan * (2.0 * body[iBody].dPlateSpeed * (LENTRENCH)) * MANUPDEGASFRAC;
+  double dCarbDegasFlux = ((MANUPDEGASFRAC) * ((body[iBody].dCarbMan) / (EVOLMAN)) * 
+                          (2.0 * body[iBody].dPlateSpeed * (LENTRENCH) * (body[iBody].dDepthMeltMan)));
+  // double dCarbDegasFlux = ((DEGASEFF) * ((body[iBody].dCarbMan) / (EVOLMAN)) * 
+  //                         (2.0 * body[iBody].dPlateSpeed * (LENTRENCH) * (body[iBody].dDepthMeltMan)));
+
+  return dCarbDegasFlux;
+}
+
+double fdCarbSFWFlux(BODY *body, int iBody) {
+  double dCarbSFWFlux = ((PRESENTSFWFLUX*(CO2MOLMASS)) * (body[iBody].dPlateSpeed / PRESENTPLATESPEED) *
+                        pow((body[iBody].dPartialCO2 / PRESENTCO2), SFWEXP));
+  return dCarbSFWFlux;
+}
+// should this go to zero when WaterOcean is zero??
+
+double fdCarbWeathFlux(BODY *body, int iBody) {
+  double supplylimit = (EAREASURF * PRESENTLANDFRAC * EROSIONRATE * 
+                        HEAVYMASSFRAC * DENSREG) / (HEAVYMASS); // mol/s
+  double t1 = (PRESENTWFLUX / supplylimit); 
+  double t2 = (PRESENTLANDFRAC) / (PRESENTLANDFRAC); // placeholder for user input land frac;
+  double t3 = pow((body[iBody].dPSat / PRESENTPSAT), PSATSILWEXP);
+  double t4 = exp((SILWACTENERGY / GASCONSTANT)*((1.0 / PRESENTSURFTEMP)-(1.0 / body[iBody].dTSurf)));
+  double t5 = pow((1.0 / PRESENTCO2), PCO2SILWEXP);
+  double coeff = t1 * t2 * t3 * t4 * t5;
+  double dCarbWeathFlux = ((supplylimit*(CO2MOLMASS)) * (1.0 - exp(-1.0 * coeff * pow(body[iBody].dPartialCO2, PCO2SILWEXP))));
+
+ // if (bFloatComparison(body[iBody].dWaterPrecipMass,0.0)) {
+ //    dCarbWeathFlux = dTINY;
+ //  }
+
+  return dCarbWeathFlux;
+}
+// should this go to zero when precipflux is zero??
+
+double fdDCarbManDtThermint(BODY *body, SYSTEM *system, int *iaBody) {
+  int iBody = iaBody[0];
+  double dDCarbManDt = (((1 - CARBSUBDEGASFRAC) * body[iBody].dCarbSubFlux) - body[iBody].dCarbDegasFlux);
+
+  if (bFloatComparison(dDCarbManDt,0.0)) {
+    dDCarbManDt = dTINY;
+  }
+
+  return dDCarbManDt;
+}
+
+double fdDCarbPlateDtThermint(BODY *body, SYSTEM *system, int *iaBody) {
+  int iBody = iaBody[0];
+  double dDCarbPlateDt = ((0.5 * body[iBody].dCarbWeathFlux) + body[iBody].dCarbSFWFlux - body[iBody].dCarbSubFlux);
+  
+  if (bFloatComparison(dDCarbPlateDt,0.0)) {
+    dDCarbPlateDt = dTINY;
+  }
+  
+
+  return dDCarbPlateDt;
+}
+
+double fdDCarbSurfDtThermint(BODY *body, SYSTEM *system, int *iaBody) {
+  int iBody = iaBody[0];
+  double dDCarbSurfDt = (body[iBody].dCarbArcFlux + body[iBody].dCarbDegasFlux - 
+                        (0.5 * body[iBody].dCarbWeathFlux) - body[iBody].dCarbSFWFlux);
+
+  if (bFloatComparison(dDCarbSurfDt,0.0)) {
+    dDCarbSurfDt = dTINY;
+  }
+
+  return dDCarbSurfDt;
+}
+
+double fdCarbOcean(BODY *body, int iBody) {
+  //double dCarbOcean = (body[iBody].dPartialCO2 * OCEANMOLES * H2OMOLMASS) / (CO2SOLUBILITY - body[iBody].dPartialCO2);
+  double dCarbOcean = (body[iBody].dPartialCO2 * body[iBody].dWaterOcean) / (CO2SOLUBILITY - body[iBody].dPartialCO2);
+  return dCarbOcean;
+}
+
+double fdCarbAtm(BODY *body, int iBody) {
+  double dCarbAtm = (EAREASURF * body[iBody].dPartialCO2) / (GRAVSURF);
+  return dCarbAtm;
+}
+
+void fvPartialCO2LastStep(BODY *body, EVOLVE *evolve, int iBody) {
+    if (evolve->bFirstStep) {
+      body[iBody].dPartialCO2LastStep = fdPartialCO2(body, iBody);
+      body[iBody].dPartialCO2 = fdPartialCO2(body, iBody);
+    }
+    else {
+      body[iBody].dPartialCO2LastStep = body[iBody].dPartialCO2;
+      body[iBody].dPartialCO2 = fdPartialCO2(body, iBody);
+    }
+}
+
+double fdDParCarbAtmDt(BODY *body, EVOLVE *evolve, int iBody) {
+  double dDParCarbAtmDt = (body[iBody].dPartialCO2 - body[iBody].dPartialCO2LastStep)/(evolve->dTimeStep);
+
+  if (bFloatComparison(dDParCarbAtmDt,0.0)) {
+    dDParCarbAtmDt = dTINY;
+  }
+
+  return dDParCarbAtmDt;
+}
+
+double fdVelScale(BODY *body, int iBody) {
+  double dVelScale = ((VELSCALEPAR * THERMDIFF) / (2 * (EDMAN))) * pow((body[iBody].dRayleighMan / RACRIT), 2.0/3.0); 
+  // can probably just rename this PlateSpeedSeales
+  return dVelScale;
+}
+
+double fdWaterInMelt(BODY *body, int iBody) {
+  double dWaterInMelt = (body[iBody].dWaterMan / EMASSMAN) / (BULKDIFFCOEFF + body[iBody].dFMeltUMan * (1 - BULKDIFFCOEFF));
+  return dWaterInMelt;
+}
+
+// double fdCarbInMelt(BODY *body, int iBody) {
+//   double dCarbInMelt = (body[iBody].dCarbMan / EMASSMAN)); // bulk diff coeff for carbon???
+//   return dCarbInMelt;
+// }
+
+double fdSpreadRate(BODY *body, int iBody) {
+  double dSpreadRate = 2 * LENTRENCH * body[iBody].dVelScale; // not really using this anymore
+  return dSpreadRate;
+}
+
+double fdSerpLayerThickness(BODY *body, int iBody) {
+  double dSerpLayerThickness = (THERMCONDUMAN * fabs(body[iBody].dTSurf - 973)) / (body[iBody].dHfluxUMan);
+  return dSerpLayerThickness;
+}
+
+double fdWaterPrecipMass(BODY *body, EVOLVE *evolve, int iBody) {
+  double airmass = (body[iBody].dPSat * EAREASURF) / GRAVSURF;
+  // double dWaterPrecipMass = (body[iBody].dWaterAtm - airmass);
+  double dWaterPrecipMass = (body[iBody].dWaterAtm - airmass)/(evolve->dTimeStep); 
+  return dWaterPrecipMass;
+}
+
+double fdWaterMORFlux(BODY *body, int iBody) {
+  double dWaterMORFlux = EMANDENS * body[iBody].dFMeltUMan * body[iBody].dWaterInMelt * 
+                          body[iBody].dDepthMeltMan * (2.0 * body[iBody].dPlateSpeed * 
+                          (LENTRENCH)) * DEGASEFF;
+
+  if (bFloatComparison(dWaterMORFlux,0.0)) {
+    dWaterMORFlux = dTINY;
+  }
+
+  return dWaterMORFlux;
+  // dmelt should be THICKNESS of melt zone, not depth to melt zone -- is this significantly different?
+}
+
+double fdWaterSubFlux(BODY *body, int iBody) {
+  double dWaterSubFlux = MASSFRACSERP * EMANDENS * body[iBody].dSerpLayerThickness * 
+                          (2.0 * body[iBody].dPlateSpeed * (LENTRENCH)) * REGASEFF;
+
+  if (bFloatComparison(body[iBody].dFMeltUMan,0.0)) {
+    dWaterSubFlux = dTINY;
+  }
+  return dWaterSubFlux;
+}
+// should the subduction flux halt when WaterOcean=0? does this effectively happen anyway if DWaterOceanDt is the only
+// place this function gets used....?
+
+double fdDWaterManDtThermint(BODY *body, SYSTEM *system, int *iaBody) {
+  int iBody = iaBody[0];
+  double dDWaterManDt = body[iBody].dWaterSubFlux - body[iBody].dWaterMORFlux;
+
+  if (bFloatComparison(dDWaterManDt,0)) {
+    dDWaterManDt = dTINY;
+  }
+
+  return dDWaterManDt;
+}
+
+double fdDWaterOceanDtThermint(BODY *body, SYSTEM *system, int *iaBody) {
+  int iBody = iaBody[0];
+  // double dDWaterOceanDt;
+  //double dDWaterOceanDt = body[iBody].dWaterPrecipMass - body[iBody].dWaterSubFlux;
+  
+  // if (body[iBody].dWaterOcean < 1e6) {
+  //   dDWaterOceanDt = dTINY;
+  // }
+
+  // else {
+  // double dDWaterOceanDt = -1 * body[iBody].dWaterSubFlux;
+  double dDWaterOceanDt = body[iBody].dWaterPrecipMass - body[iBody].dWaterSubFlux; 
+  // }  
+
+  if (bFloatComparison(dDWaterOceanDt,0.0)) {
+    dDWaterOceanDt = dTINY;
+  }
+
+  return dDWaterOceanDt;
+}
+
+double fdDWaterAtmDtThermint(BODY *body, SYSTEM *system, int *iaBody) {
+  int iBody = iaBody[0];
+  // double dDWaterAtmDt = body[iBody].dWaterMORFlux;
+  double dDWaterAtmDt = body[iBody].dWaterMORFlux - body[iBody].dWaterPrecipMass;
+
+  if (bFloatComparison(dDWaterAtmDt,0.0)) {
+    dDWaterAtmDt = dTINY;
+  }
+
+  return dDWaterAtmDt;
+}
+
+double fdPartialH2O(BODY *body, int iBody) {
+  double dPartialH2O = (body[iBody].dWaterAtm * GRAVSURF)/(EAREASURF);
+  return dPartialH2O;
+}
+
+void fvPartialH2OLastStep(BODY *body, EVOLVE *evolve, int iBody) {
+    if (evolve->bFirstStep) {
+      body[iBody].dPartialH2OLastStep = fdPartialH2O(body, iBody);
+      body[iBody].dPartialH2O = fdPartialH2O(body, iBody);
+    }
+    else {
+      body[iBody].dPartialH2OLastStep = body[iBody].dPartialH2O;
+      body[iBody].dPartialH2O = fdPartialH2O(body, iBody);
+    }
+}
+
+double fdDParWaterAtmDt(BODY *body, EVOLVE *evolve, int iBody) {
+  double dDParWaterAtmDt = (body[iBody].dPartialH2O - body[iBody].dPartialH2OLastStep)/(evolve->dTimeStep);
+
+  if (bFloatComparison(dDParWaterAtmDt,0.0)) {
+    dDParWaterAtmDt = dTINY;
+  }
+
+  return dDParWaterAtmDt;
+}
+
+double fdDOpacityDt(BODY *body, int iBody) {
+  double dDOpacityDt = (body[iBody].dDParCarbAtmDt/(OPACITYPRESSCO2)) + (body[iBody].dDParWaterAtmDt/(OPACITYPRESSH2O));
+
+  if (bFloatComparison(dDOpacityDt, 0.0)) {
+    dDOpacityDt = dTINY;
+  }
+
+  return dDOpacityDt;
+}
+
+double fdDTSurfDtThermint(BODY *body, SYSTEM *system, int *iaBody) {
+  int iBody = iaBody[0];
+  double dDTSurfDt = (3./16.)*(pow(body[iBody].dTempEff, 4)/pow(body[iBody].dTSurf, 3))*body[iBody].dDOpacityDt;
+  return dDTSurfDt;
 }

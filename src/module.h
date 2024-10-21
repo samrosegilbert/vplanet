@@ -51,6 +51,7 @@ void PropsAuxEqtideStellar(BODY *, EVOLVE *, IO *, UPDATE *, int);
 void PropsAuxSpiNbodyEqtide(BODY *, EVOLVE *, IO *, UPDATE *, int);
 void PropsAuxSpiNBodyDistOrb(BODY *, EVOLVE *, IO *, UPDATE *, int);
 void PropsAuxMagmOcAtmEsc(BODY *, EVOLVE *, IO *, UPDATE *, int);
+void PropsAuxStellarThermint(BODY *, EVOLVE *, IO *, UPDATE *, int);
 
 void ForceBehaviorAtmescEqtideThermint(BODY *, MODULE *, EVOLVE *, IO *,
                                        SYSTEM *, UPDATE *, fnUpdateVariable ***,

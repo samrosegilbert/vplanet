@@ -488,7 +488,7 @@ void RungeKutta4Step(BODY *body, CONTROL *control, SYSTEM *system,
               evolve->daDeriv[1][iBody][iVar];
       } else {
         /* While we're in this loop, move each parameter to the midpoint
-        of the timestep based on the midpoint derivative. */
+        of the timestep based on the midpoint derivative. tmpBody gets updated here.*/
         *(evolve->tmpUpdate[iBody].pdVar[iVar]) =
               *(update[iBody].pdVar[iVar]) +
               0.5 * (*dDt) * evolve->daDeriv[1][iBody][iVar];

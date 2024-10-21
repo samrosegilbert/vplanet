@@ -1713,7 +1713,7 @@ void ReadEnvelopeMass(BODY *body, CONTROL *control, FILES *files,
             dTmp * dNegativeDouble(*options, files->Infile[iFile].cIn,
                                    control->Io.iVerbose);
     } else {
-      body[iFile - 1].dEnvelopeMass = dTmp;
+      body[iFile - 1].dEnvelopeMass = dTmp * fdUnitsMass(control->Units[iFile].iMass);
     }
     UpdateFoundOption(&files->Infile[iFile], options, lTmp, iFile);
   } else if (iFile > 0) {

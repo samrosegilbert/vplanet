@@ -32,6 +32,13 @@
 // THERMINT
 #define VTMAN 1201  // Mantle Temperature
 #define VTCORE 1202 // Core Temperature
+#define VCARBMAN 1203 // Carbon mass in Mantle
+#define VCARBPLATE 1204 // Carbon mass in Plate
+#define VCARBSURF 1205 // Carbon mass on Surface
+#define VWATERMAN 1206 // Water mass in Mantle
+#define VWATEROCEAN 1207 // Water mass in Plate
+#define VWATERATM 1208 // Water mass on Surface
+#define VTSURF 1209 // Surface temperature
 
 // DistOrb
 #define VHECC 1301 // Poincare's h

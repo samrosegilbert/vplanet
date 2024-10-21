@@ -117,7 +117,7 @@
   1.71e13 /**< [Pa] Effective stiffness of mantle (calibrated to k2=0.3,       \
              Q=100) */
 #define SHMODREF 1e6 /**< [Pa] Reference kinematic mantle shear modulus */
-#define VISCREF 6e7  /**< [m^2/s] Reference kinematic mantle viscosity */
+#define VISCREF 1.3e8  /**< 6e7 [m^2/s] Reference kinematic mantle viscosity */
 #define DYNAMVISCREF                                                           \
   1.5e9 /**< [m^2/s] Reference kinematic mantle viscosity                      \
          */
@@ -134,7 +134,7 @@
 #define VISCMELTPHIS                                                           \
   0.8 /**< [nd] Viscosity-melt reduction coefficient "phi*" (DB15 eq 8) */
 #define VISCMELTDELTA                                                          \
-  6.0 /**< [nd] Viscosity-melt reduction coefficient "delta" (DB15 eq 8) */
+  6.0 /**< [nd] Viactivationscosity-melt reduction coefficient "delta" (DB15 eq 8) */
 #define VISCMELTGAMMA                                                          \
   6.0 /**< [nd] Viscosity-melt reduction coefficient "gamma" (DB15 eq 9) */
 #define VISCMELTXI                                                             \
@@ -231,6 +231,51 @@
   (9.103 * (ERADIUS)) /**< [m] Earth's magnetopause radius (DB13) */
 #define IMK2MANORBMODEL                                                        \
   1 /**< [nd] Option for ImK2 model to use in orbital equations */
+
+
+/* CARBON CYCLE CONSTANTS (Foley 2015) */
+#define CO2SOLUBILITY 1e7 /**< [Pa] solubility of CO2 in seawater */
+#define LENTRENCH 6e7 /**< [m] length of ocean trenches */
+#define CARBSUBDEGASFRAC 0.5 /**< [nd] fraction of subducted carbon that degasses */
+#define MANUPDEGASFRAC 0.32 /**< [nd] fraction of upwelling mantle that degasses */
+#define SFWEXP 0.25 /**< [nd] PCO2 exponent for seafloor weathering */
+#define HEAVYMASSFRAC 0.08 /**< [nd] fraction of Mg, Ca, K, and Na in continental crust */
+#define HEAVYMASS 0.032 /**< [kg/mol] average molar mass of Mg, Ca, K, and Na */
+#define EROSIONRATE 3.1688087814028947e-10 /**< [m/s] maximum erosion rate */
+#define DENSREG 2500. // replace with ECRUSTDENSITY /**< [kg/m^3] regolith density */
+#define PCO2SILWEXP 0.55 /**< [nd] PCO2 exponent for silicate weathering */
+#define PSATSILWEXP 0.3 /**< [nd] Psat exponent for silicate weathering */
+#define SILWACTENERGY 42000. /**< [J/mol] activation energy for silicate weathering */
+#define H2OLATENTHEAT 2469000. /**< [J/kg] latent heat of water */
+#define CO2MOLMASS 0.044 /**< [kg/mol] molar mass of CO2 */
+#define H2OMOLMASS 0.018000000000000002 /**< [kg/mol] molar mass of H2O */
+#define OCEANMOLES (EMASSOCEAN / H2OMOLMASS) /**< [mol] moles of H2O in oceans */
+#define STEFBOLTZCONSTANT 5.67e-8 /**< [W/m^2/K^4] Stefan-Boltzmann constant */
+#define SOLARCONSTANT 1369. /**< [W/m^2] solar constant */
+#define SATREFTEMP 273. /**< [K] reference temperature */
+#define PRESENTEFFTEMP 254. /**< [K] present-day effective temperature */
+#define ALBEDO 0.31 /**< [nd] Earth's albedo */
+#define PRESENTWFLUX 380257.0537683474 /**< [mol/s] present-day weathering flux */
+#define PRESENTCO2 33. /**< [Pa] present-day atmospheric CO2 */
+#define PRESENTSURFTEMP 285. /**< [K] present-day surface temperature */
+#define PRESENTLANDFRAC 0.3 /**< [nd] present-day land fraction */
+#define SATVAPEREF 610. /**< [Pa] reference saturation vapor pressure */
+#define PRESENTSFWFLUX 55454.154 /**< [kg/s] present-day seafloor weathering flux */
+#define PRESENTPLATESPEED 1.5844044e-9 /**< [m/s] present-day plate speed */
+#define TOTALEARTHCARB 2.5e22 /**< [mol] Earth-like carbon reservoir */
+#define PRESENTPSAT 1391.0996551777278 /**< [Pa] present-day saturation vapor pressure */
+#define DEPTHTOMELT 70000. /**< [m] CONSTANT depth to melt layer (debug mode) */
+#define EVOLMANFOLEY 9.1e20 /**< [m^3] CONSTANT mantle volume */
+#define EAREASURFFOLEY 5.1e14 /**< [m^2] surface area */
+#define EMANDENS (EMASSMAN / EVOLMAN) /**< [kg/m^3] mantle density */
+#define DEGASEFF 0.19999999999 /**< 0.03 degassing efficiency factor (Seales+Lenardic 2020) */
+#define REGASEFF 0.015 /**< regassing efficiency factor (Seales+Lenardic 2020) */
+#define VELSCALEPAR 5.38 /**< velocity scaling factor (Seales+Lenardic 2020) */
+#define THERMDIFF 1.0e-6 /**< [m^2/s] thermal diffusivity (Seales+Lenardic 2020) */
+#define BULKDIFFCOEFF 0.01 /**< bulk distribution coefficient (Seales+Lenardic 2020)*/
+#define MASSFRACSERP 0.03 /**< mass fraction of water in the serpentinized layer (Seales+Lenardic 2020)*/ 
+#define OPACITYPRESSH2O 3931 /**< [Pa] opacity pressure of water (Driscoll & Bercovici 2013) */
+#define OPACITYPRESSCO2 6.919e4 /**< [Pa] opacity pressure of CO2 (Driscoll & Bercovici 2013) */
 
 // void InitializeControlThermint(CONTROL*);
 void fvAddModuleThermint(CONTROL *, MODULE *, int, int);
@@ -379,6 +424,21 @@ void fvInitializeBodyThermint(BODY *, CONTROL *, UPDATE *, int, int);
 #define OPT_ELECCONDCORE 1808 /**< [S/m] Electrical conductivity of core */
 #define OPT_IMK2MANORBMODEL                                                    \
   1809 /**< [nd] Option of ImK2 model to use in orbital equations */
+#define OPT_CARBMAN                                                   \
+  1810 /**< [kg] Initial carbon reservoir in the mantle */
+#define OPT_CARBPLATE                                                   \
+  1811 /**< [kg] Initial carbon reservoir in the plate */
+#define OPT_CARBSURF                                                  \
+  1812 /**< [kg] Initial carbon reservoir on the surface (atm+ocean) */
+/* End vemcee parameters */
+#define OPT_WATERMAN                                                   \
+  1813 /**< [kg] Initial water reservoir in the mantle */
+#define OPT_WATEROCEAN                                                   \
+  1814 /**< [kg] Initial water reservoir in the plate */
+#define OPT_WATERATM                                                  \
+  1815 /**< [kg] Initial water reservoir on the surface (atm+ocean) */
+#define OPT_WATERVISCMAN \
+  1816 /**< Initial viscosity of the mantle */
 /* End vemcee parameters */
 
 /* Options Functions */
@@ -416,6 +476,12 @@ void fvReadAdJumpC2CMB(BODY *, CONTROL *, FILES *, OPTIONS *, SYSTEM *, int);
 void fvReadElecCondCore(BODY *, CONTROL *, FILES *, OPTIONS *, SYSTEM *, int);
 void fvReadImK2ManOrbModel(BODY *, CONTROL *, FILES *, OPTIONS *, SYSTEM *,
                            int);
+void fvReadCarbMan(BODY *, CONTROL *, FILES *, OPTIONS *, SYSTEM *, int);
+void fvReadCarbPlate(BODY *, CONTROL *, FILES *, OPTIONS *, SYSTEM *, int);
+void fvReadCarbSurf(BODY *, CONTROL *, FILES *, OPTIONS *, SYSTEM *, int);
+void fvReadWaterMan(BODY *, CONTROL *, FILES *, OPTIONS *, SYSTEM *, int);
+void fvReadWaterOcean(BODY *, CONTROL *, FILES *, OPTIONS *, SYSTEM *, int);
+void fvReadWaterAtm(BODY *, CONTROL *, FILES *, OPTIONS *, SYSTEM *, int);
 /* end vemcee parameters */
 
 void fvInitializeOptionsThermint(OPTIONS *, fnReadOption[]);
@@ -465,7 +531,6 @@ void fvForceBehaviorThermint(BODY *, MODULE *, EVOLVE *, IO *, SYSTEM *,
 #define OUT_TMAN 1710 /**< [K] Average mantle temperature */
 #define OUT_TUMAN                                                              \
   1711 /**< [K] Temperature base of upper mantle boundary layer */
-#define OUT_TSOLUMAN 1801 /**< [K] Upper mantle solidus temperature */
 #define OUT_TLMAN                                                              \
   1712 /**< [K] Temperature top of lower mantle boundary layer */
 #define OUT_TCORE 1713 /**< [K] Average core temperature */
@@ -586,6 +651,45 @@ void fvForceBehaviorThermint(BODY *, MODULE *, EVOLVE *, IO *, SYSTEM *,
   1798 /**< [K] Reference Lindemann temperature of core liquidus */
 #define OUT_DTCHIREF 1799 /**< [K] Reference core liquidus depression */
 #define OUT_DYNVISC 1800  /**< [Pa/s] Dynamic viscosity of upper mantle */
+#define OUT_TSOLUMAN 1801 /**< [K] Upper mantle solidus temperature */
+
+#define OUT_CARBMAN 1802 /**< [kg] Carbon mantle mass */
+#define OUT_CARBPLATE 1803 /**< [kg] Carbon plate mass */
+#define OUT_CARBSURF 1804 /**< [kg] Carbon surface mass */
+#define OUT_DCARBMANDT 1805 /**< [kg/s] Carbon mantle mass over time */
+#define OUT_DCARBPLATEDT 1806 /**< [kg/s] Carbon plate mass over time */
+#define OUT_DCARBSURFDT 1807 /**< [kg/s] Carbon surface mass over time */
+#define OUT_CARBWEATHFLUX 1808 /**< [kg/s] Carbon weathering flux */
+#define OUT_CARBSFWFLUX 1809 /**< [kg/s] Carbon seafloor weathering flux */
+#define OUT_CARBDEGASFLUX 1810 /**< [kg/s] Carbon degassing flux */
+#define OUT_CARBARCFLUX 1811 /**< [kg/s] Carbon arc flux */
+#define OUT_CARBSUBFLUX 1812 /**< [kg/s] Carbon subduction flux */
+#define OUT_CARBOCEAN 1813 /**< [kg] Carbon ocean mass */
+#define OUT_CARBATM 1814 /**< [kg] Carbon atmospheric mass */
+#define OUT_PLATESPEED 1815 /**< [m/s] Plate speed */
+#define OUT_PARTIALCO2 1816 /**< [Pa] Carbon atmospheric partial pressure */
+#define OUT_TSURF 1817 /**< [K] Surface temperature */
+#define OUT_TEMPEFF 1818 /**< [K] Effective temperature */
+#define OUT_WATERMAN 1819 /**< [kg] Water mantle mass */
+#define OUT_WATEROCEAN 1820 /**< [kg] Water plate mass */
+#define OUT_WATERATM 1821 /**< [kg] Water surface mass */
+#define OUT_DWATERMANDT 1822 /**< [kg/s] Water mantle mass over time */
+#define OUT_DWATEROCEANDT 1823 /**< [kg/s] Water plate mass over time */
+#define OUT_DWATERATMDT 1824 /**< [kg/s] Water surface mass over time */
+#define OUT_VELSCALE 1825 /**< [m/s] velocity scale */
+#define OUT_WATERINMELT 1826 /**< [nd] mass fraction of water in the melt */
+#define OUT_SPREADRATE 1827 /**< [m^2/s] areal spreading rate of plates */
+#define OUT_SERPLAYERTHICKNESS 1828 /**< [m] thickness of the serpentinized layer */
+#define OUT_WATERPRECIPMASS 1829 /**< [kg] excess mass of water relative to sat. vapor pressure */
+#define OUT_WATERMORFLUX 1830 /**< [kg/s] rate of midocean ridge degassing of water */
+#define OUT_WATERSUBFLUX 1831 /**< [kg/s] rate of subduction of water */
+#define OUT_PSAT 1832 /**> [Pa] saturation vapor pressure */
+#define OUT_DTSURFDT 1833 /**> [K] surface temperature over time */
+#define OUT_DOPACITYDT 1834 /**> [n.d.] opacity over time, calculated explicitly */
+#define OUT_DPARWATERATMDT 1835 /**> [Pa] partial pressure of water over time */
+#define OUT_DPARCARBATMDT 1836 /**> [Pa] partial pressure of water over time */
+
+
 
 void fvInitializeOutputThermint(OUTPUT *, fnWriteOutput[]);
 void fvInitializeOutputFunctionThermint(OUTPUT *, int, int);
@@ -719,6 +823,19 @@ void fvWritePresSWind(BODY *, CONTROL *, OUTPUT *, SYSTEM *, UNITS *, UPDATE *,
                       int, double *, char[]);
 void fvWriteMagPauseRad(BODY *, CONTROL *, OUTPUT *, SYSTEM *, UNITS *,
                         UPDATE *, int, double *, char[]);
+void fvWriteCarbMan(BODY *, CONTROL *, OUTPUT *, SYSTEM *, UNITS *,
+                        UPDATE *, int, double *, char[]);
+void fvWriteCarbPlate(BODY *, CONTROL *, OUTPUT *, SYSTEM *, UNITS *,
+                        UPDATE *, int, double *, char[]);
+void fvWriteCarbSurf(BODY *, CONTROL *, OUTPUT *, SYSTEM *, UNITS *,
+                        UPDATE *, int, double *, char[]);
+void fvWriteWaterMan(BODY *, CONTROL *, OUTPUT *, SYSTEM *, UNITS *,
+                        UPDATE *, int, double *, char[]);
+void fvWriteWaterOcean(BODY *, CONTROL *, OUTPUT *, SYSTEM *, UNITS *,
+                        UPDATE *, int, double *, char[]);
+void fvWriteWaterAtm(BODY *, CONTROL *, OUTPUT *, SYSTEM *, UNITS *,
+                        UPDATE *, int, double *, char[]);
+
 /* Logging Functions */
 void fvLogOptionsThermint(CONTROL *, FILE *);
 void fvLogThermint(BODY *, CONTROL *, OUTPUT *, SYSTEM *, UPDATE *,
@@ -807,6 +924,49 @@ double fdPresSWind(BODY *, int);
 double fdMagPauseRad(BODY *, int);
 double fdSurfEnFlux(BODY *, SYSTEM *, UPDATE *, int, int);
 double fdPowerThermint(BODY *, int);
+double fdCarbMan(BODY *, int);
+double fdCarbPlate(BODY *, int);
+double fdCarbSurf(BODY *, int);
+double fdDCarbManDtThermint(BODY *, SYSTEM *, int *);
+double fdDCarbPlateDtThermint(BODY *, SYSTEM *, int *);
+double fdDCarbSurfDtThermint(BODY *, SYSTEM *, int *);
+void fvFoleyPropsAux(BODY *, EVOLVE *, int); 
+double fdPartialCO2(BODY *, int);
+double fdTempEff(BODY *, int);
+double fdTSurf(BODY *, int);
+double fdPlateSpeedFoley(BODY *, int);
+double fdPlateSpeedSeales(BODY *, int);
+double fdPSat(BODY *, int);
+double fdCarbSubFlux(BODY *, int);
+double fdCarbArcFlux(BODY *, int);
+double fdCarbDegasFlux(BODY *, int);
+double fdCarbSFWFlux(BODY *, int);
+double fdCarbWeathFlux(BODY *, int);
+double fdCarbOcean(BODY *, int);
+double fdCarbAtm(BODY *, int);
+double fdWaterMan(BODY *, int);
+double fdWaterOcean(BODY *, int);
+double fdWaterAtm(BODY *, int);
+double fdDWaterManDtThermint(BODY *, SYSTEM *, int *);
+double fdDWaterOceanDtThermint(BODY *, SYSTEM *, int *);
+double fdDWaterAtmDtThermint(BODY *, SYSTEM *, int *);
+void fvSealesPropsAux(BODY *, EVOLVE *, int);
+double fdVelScale(BODY *, int);
+double fdWaterInMelt(BODY *, int);
+double fdSpreadRate(BODY *, int);
+double fdSerpLayerThickness(BODY *, int);
+double fdWaterMORFlux(BODY *, int);
+double fdWaterSubFlux(BODY *, int);
+double fdWaterPrecipMass(BODY *, EVOLVE *, int);
+double fdPartialH2O(BODY *, int);
+void fvPartialCO2LastStep(BODY *, EVOLVE *, int);
+void fvPartialH2OLastStep(BODY *, EVOLVE *, int);
+void fvDriscollPropsAux(BODY *, EVOLVE *, int);
+double fdDParCarbAtmDt(BODY *, EVOLVE *, int);
+double fdDParWaterAtmDt(BODY *, EVOLVE *, int);
+double fdDOpacityDt(BODY *, int);
+//double fdDTSurfDt(BODY *, SYSTEM *, int *);
+double fdDTSurfDtThermint(BODY *, SYSTEM *, int *);
 
 /* MATH  FUNCTIONS */
 double cube(double);

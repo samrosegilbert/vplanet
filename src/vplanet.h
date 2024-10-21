@@ -499,6 +499,7 @@ struct BODY {
   double dSignTJumpUMan;     /**< Sign of Temperature Jump across UMTBL */
   double dSignTJumpLMan;     /**< Sign of Temperature Jump across LMTBL */
   double dViscUManArr;       /**< Viscosity UMTBL Arrhenius Law */
+  double dWaterViscMan;      /**< Water viscosity of the mantle */
   double dViscUMan;          /**< Viscosity UMTBL */
   double dViscLMan;          /**< Viscosity LMTBL */
   double dViscMMan;          /**< Viscosity Mid (ave) mantle */
@@ -525,6 +526,35 @@ struct BODY {
   double dTJumpMeltMan;      /**< Temp Jump to base of UM Melt layer */
   double dMeltMassFluxMan;   /**< Mantle upwelling melt mass flux */
   double dRayleighMan;       /**< Mantle Rayleigh Number */
+  double dCarbMan;           /**< Mass of Carbon in the mantle */
+  double dCarbPlate;         /**< Mass of Carbon in the plate */
+  double dCarbSurf;          /**< Mass of Carbon on the surface */
+  double dPartialCO2;        /**< Partial pressure of CO2 */
+  double dTempEff;           /**< Effective temperature of planet */
+  double dPlateSpeed;        /**< Plate speed */
+  double dPSat;              /**< Saturation vapor pressure */
+  double dCarbSubFlux;       /**< Subduction flux of Carbon */
+  double dCarbArcFlux;       /**< Arc flux of Carbon */
+  double dCarbDegasFlux;     /**< Degassing flux of Carbon */
+  double dCarbSFWFlux;       /**< Sea-floor weathering flux of Carbon */
+  double dCarbWeathFlux;     /**< Weathering flux of Carbon */
+  double dCarbOcean;         /**< Carbon ocean mass */
+  double dCarbAtm;           /**< Carbon atmospheric mass */
+  double dInstellation;      /**< Incident stellar flux [W/m^2] */
+  double dWaterMan;          /**< Mass of Water in the mantle */
+  double dWaterOcean;        /**< Mass of Water in the plate */
+  double dWaterAtm;         /**< Mass of Water on the surface */
+  double dVelScale;
+  double dWaterInMelt;
+  double dSpreadRate;
+  double dSerpLayerThickness;
+  double dWaterMORFlux;
+  double dWaterSubFlux;
+  double dWaterPrecipMass;
+  double dPartialH2O;
+  double dPartialCO2LastStep;
+  double dPartialH2OLastStep;
+
   /* Time Derivatives & Gradients */
   double dTDotMan;   /**< Time deriv of mean mantle temp */
   double dTDotCore;  /**< time deriv of mean core temp */
@@ -546,6 +576,16 @@ struct BODY {
   double dHfluxSurf;      /**< hflux surface of mantle */
   double dHflowSurf;      /**< hflow surface of mantle */
   double dTidalPowMan;    /**< Tidal Dissipation Power in Mantle */
+  double dDCarbManDt; 
+  double dDCarbPlateDt;
+  double dDCarbSurfDt;
+  double dDWaterManDt; 
+  double dDWaterOceanDt;
+  double dDWaterAtmDt;
+  double dDParCarbAtmDt;
+  double dDParWaterAtmDt;
+  double dDOpacityDt;
+
   /* Core Variables */
   double dRIC;            /**< IC radius */
   double dDRICDTCMB;      /**< d(R_ic)/d(T_cmb) */
@@ -1411,6 +1451,56 @@ struct UPDATE {
   int iNumTCore;    /**< Number of Equations Affecting TCore */
   double dTDotCore; /**< TCore time Derivative */
   double *pdTDotCore;
+  
+  int iCarbMan;
+  int iNumCarbMan;
+  double dCarbMan;
+  int iCarbManThermint;
+  double DCarbManDt;
+  double *pdDCarbManDtThermint;
+  
+  int iCarbPlate;
+  int iNumCarbPlate;
+  double dCarbPlate;
+  int iCarbPlateThermint;
+  double DCarbPlateDt;
+  double *pdDCarbPlateDtThermint;
+  
+  int iCarbSurf;
+  int iNumCarbSurf;
+  double dCarbSurf;
+  int iCarbSurfThermint;
+  double DCarbSurfDt;
+  double *pdDCarbSurfDtThermint;
+  
+  int iWaterMan;
+  int iNumWaterMan;
+  double dWaterMan;
+  int iWaterManThermint;
+  double DWaterManDt;
+  double *pdDWaterManDtThermint;
+
+  int iWaterOcean;
+  int iNumWaterOcean;
+  double dWaterOcean;
+  int iWaterOceanThermint;
+  double DWaterOceanDt;
+  double *pdDWaterOceanDtThermint;
+
+  int iWaterAtm;
+  int iNumWaterAtm;
+  double dWaterAtm;
+  int iWaterAtmThermint;
+  double DWaterAtmDt;
+  double *pdDWaterAtmDtThermint;
+
+  int iTSurf;
+  int iNumTSurf;
+  double dTSurf;
+  int iTSurfThermint;
+  double DTSurfDt;
+  double *pdDTSurfDtThermint;
+
   // double dDynamViscos;
 
   /* DISTORB */
@@ -2168,6 +2258,20 @@ typedef void (*fnFinalizeUpdateCO2MassMOAtmModule)(BODY *, UPDATE *, int *, int,
                                                    int, int);
 typedef void (*fnFinalizeUpdateCO2MassSolModule)(BODY *, UPDATE *, int *, int,
                                                  int, int);
+typedef void (*fnFinalizeUpdateCarbManModule)(BODY *, UPDATE *, int *, int, 
+                                                  int, int);
+typedef void (*fnFinalizeUpdateCarbPlateModule)(BODY *, UPDATE *, int *, int, 
+                                                  int, int);
+typedef void (*fnFinalizeUpdateCarbSurfModule)(BODY *, UPDATE *, int *, int, 
+                                                  int, int);
+typedef void (*fnFinalizeUpdateWaterManModule)(BODY *, UPDATE *, int *, int, 
+                                                  int, int);
+typedef void (*fnFinalizeUpdateWaterOceanModule)(BODY *, UPDATE *, int *, int, 
+                                                  int, int);
+typedef void (*fnFinalizeUpdateWaterAtmModule)(BODY *, UPDATE *, int *, int, 
+                                                  int, int);
+typedef void (*fnFinalizeUpdateTSurfModule)(BODY *, UPDATE *, int *, int, 
+                                                  int, int);
 
 typedef void (*fnReadOptionsModule)(BODY *, CONTROL *, FILES *, OPTIONS *,
                                     SYSTEM *, fnReadOption *, int);
@@ -2307,6 +2411,23 @@ struct MODULE {
   fnFinalizeUpdateTemperatureModule **fnFinalizeUpdateTemperature;
   /*! Function pointers to finalize Mantle Temperature */
   fnFinalizeUpdateTManModule **fnFinalizeUpdateTMan;
+
+  /*! These functions point to finalize update functions in ThermInt */
+  /*! Function pointers to finalize mass of carbon in the mantle */
+  fnFinalizeUpdateCarbManModule **fnFinalizeUpdateCarbMan;
+  /*! Function pointers to finalize mass of carbon in the plate */
+  fnFinalizeUpdateCarbPlateModule **fnFinalizeUpdateCarbPlate;
+  /*! Function pointers to finalize mass of carbon on the surface */
+  fnFinalizeUpdateCarbSurfModule **fnFinalizeUpdateCarbSurf;
+    /*! Function pointers to finalize mass of water in the mantle */
+  fnFinalizeUpdateWaterManModule **fnFinalizeUpdateWaterMan;
+  /*! Function pointers to finalize mass of water in the ocean */
+  fnFinalizeUpdateWaterOceanModule **fnFinalizeUpdateWaterOcean;
+  /*! Function pointers to finalize mass of water in the atmosphere */
+  fnFinalizeUpdateWaterAtmModule **fnFinalizeUpdateWaterAtm;
+  /*! Function pointers to finalize surface temperature due to CO2/H2O greenhouse feedbacks*/
+  fnFinalizeUpdateTSurfModule **fnFinalizeUpdateTSurf;
+
 
   /* Function points to finalize binary update functions */
   /* CBP R, Z, Phi, and their time derivaties */

@@ -204,6 +204,20 @@ void InitializeModule(BODY *body, CONTROL *control, MODULE *module) {
         malloc(iNumBodies * sizeof(fnFinalizeUpdateYoblModule));
   module->fnFinalizeUpdateZobl =
         malloc(iNumBodies * sizeof(fnFinalizeUpdateZoblModule));
+  module->fnFinalizeUpdateCarbMan =
+        malloc(iNumBodies * sizeof(fnFinalizeUpdateCarbManModule));
+  module->fnFinalizeUpdateCarbPlate =
+        malloc(iNumBodies * sizeof(fnFinalizeUpdateCarbPlateModule));
+  module->fnFinalizeUpdateCarbSurf =
+        malloc(iNumBodies * sizeof(fnFinalizeUpdateCarbSurfModule));
+  module->fnFinalizeUpdateWaterMan =
+        malloc(iNumBodies * sizeof(fnFinalizeUpdateWaterManModule));
+  module->fnFinalizeUpdateWaterOcean =
+        malloc(iNumBodies * sizeof(fnFinalizeUpdateWaterOceanModule));
+  module->fnFinalizeUpdateWaterAtm =
+        malloc(iNumBodies * sizeof(fnFinalizeUpdateWaterAtmModule));
+  module->fnFinalizeUpdateTSurf =
+        malloc(iNumBodies * sizeof(fnFinalizeUpdateTSurfModule));
 
   module->fnFinalizeUpdateEccX =
         malloc(iNumBodies * sizeof(fnFinalizeUpdateEccXModule));
@@ -451,6 +465,20 @@ void FinalizeModule(BODY *body, CONTROL *control, MODULE *module, int iBody) {
         malloc(iNumModules * sizeof(fnFinalizeUpdateLostAngMomModule));
   module->fnFinalizeUpdateLostEng[iBody] =
         malloc(iNumModules * sizeof(fnFinalizeUpdateLostEngModule));
+  module->fnFinalizeUpdateCarbMan[iBody] =
+        malloc(iNumModules * sizeof(fnFinalizeUpdateCarbManModule));
+  module->fnFinalizeUpdateCarbPlate[iBody] =
+        malloc(iNumModules * sizeof(fnFinalizeUpdateCarbPlateModule));
+  module->fnFinalizeUpdateCarbSurf[iBody] =
+        malloc(iNumModules * sizeof(fnFinalizeUpdateCarbSurfModule));
+  module->fnFinalizeUpdateWaterMan[iBody] =
+        malloc(iNumModules * sizeof(fnFinalizeUpdateWaterManModule));
+  module->fnFinalizeUpdateWaterOcean[iBody] =
+        malloc(iNumModules * sizeof(fnFinalizeUpdateWaterOceanModule));
+  module->fnFinalizeUpdateWaterAtm[iBody] =
+        malloc(iNumModules * sizeof(fnFinalizeUpdateWaterAtmModule));
+  module->fnFinalizeUpdateTSurf[iBody] =
+        malloc(iNumModules * sizeof(fnFinalizeUpdateTSurfModule));
 
   module->fnFinalizeUpdateEccX[iBody] =
         malloc(iNumModules * sizeof(fnFinalizeUpdateEccXModule));
@@ -590,6 +618,14 @@ void FinalizeModule(BODY *body, CONTROL *control, MODULE *module, int iBody) {
           &FinalizeUpdateNULL;
     module->fnFinalizeUpdateCO2MassMOAtm[iBody][iModule] = &FinalizeUpdateNULL;
     module->fnFinalizeUpdateCO2MassSol[iBody][iModule]   = &FinalizeUpdateNULL;
+    module->fnFinalizeUpdateCarbMan[iBody][iModule]   = &FinalizeUpdateNULL;
+    module->fnFinalizeUpdateCarbPlate[iBody][iModule]   = &FinalizeUpdateNULL;
+    module->fnFinalizeUpdateCarbSurf[iBody][iModule]   = &FinalizeUpdateNULL;
+    module->fnFinalizeUpdateWaterMan[iBody][iModule]   = &FinalizeUpdateNULL;
+    module->fnFinalizeUpdateWaterOcean[iBody][iModule]   = &FinalizeUpdateNULL;
+    module->fnFinalizeUpdateWaterAtm[iBody][iModule]   = &FinalizeUpdateNULL;
+    module->fnFinalizeUpdateTSurf[iBody][iModule]   = &FinalizeUpdateNULL;
+
   }
 }
 
@@ -1043,6 +1079,18 @@ void VerifyModuleMultiEqtideDistOrb(BODY *body, UPDATE *update,
     if (body[iBody].bDistOrb) {
       control->fnForceBehaviorMulti[iBody][(*iModuleForce)++] =
             &ForceBehaviorEqtideDistOrb;
+    }
+  }
+}
+
+void VerifyModuleMultiStellarThermint(BODY *body, UPDATE *update,
+                                    CONTROL *control, FILES *files,
+                                    MODULE *module, OPTIONS *options, int iBody,
+                                    int *iModuleProps, int *iModuleForce) {
+  if (body[0].bStellar) {
+    if (body[iBody].bThermint) {
+      control->fnPropsAuxMulti[iBody][(*iModuleProps)++] =
+          &PropsAuxStellarThermint;
     }
   }
 }
@@ -1804,6 +1852,9 @@ void VerifyModuleMulti(BODY *body, UPDATE *update, CONTROL *control,
   VerifyModuleMultiMagmOcAtmEsc(body, update, control, files, module, options,
                                 iBody, &iNumMultiProps, &iNumMultiForce);
 
+  VerifyModuleMultiStellarThermint(body, update, control, files, module, options,
+                                iBody, &iNumMultiProps, &iNumMultiForce);
+
   control->iNumMultiProps[iBody] = iNumMultiProps;
   control->iNumMultiForce[iBody] = iNumMultiForce;
   if (control->Io.iVerbose >= VERBALL) {
@@ -1943,6 +1994,11 @@ void PropsAuxMagmOcAtmEsc(BODY *body, EVOLVE *evolve, IO *io, UPDATE *update,
                      pow((1 - body[iBody].dEcc * body[iBody].dEcc), 0.5)),
               -0.5);
   }
+}
+
+void PropsAuxStellarThermint(BODY *body, EVOLVE *evolve, IO *io, UPDATE *update,
+                           int iBody) {
+  body[iBody].dInstellation = fdInstellation(body, iBody);
 }
 
 /*
